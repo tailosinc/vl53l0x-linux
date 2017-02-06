@@ -1,3 +1,7 @@
+Copyright (c) 2016 mjbogusz
+
+-----------------------------------------------------------------
+
 Copyright (c) 2016 Pololu Corporation.  For more information, see
 
 https://www.pololu.com/
