@@ -1,8 +1,3 @@
-// Most of the functionality of this library is based on the VL53L0X API
-// provided by ST (STSW-IMG005), and some of the explanatory comments are quoted
-// or paraphrased from the API source code, API user manual (UM2039), and the
-// VL53L0X datasheet.
-
 #include <VL53L0X.h>
 
 /*** Defines ***/
@@ -11,10 +6,10 @@
 #define ADDRESS_DEFAULT 0b0101001
 
 // Record the current time to check an upcoming timeout against
-#define startTimeout() (this->timeoutStartMilliseconds = millis())
+#define startTimeout() (this->timeoutStartMilliseconds = milliseconds())
 
 // Check if timeout is enabled (set to nonzero value) and has expired
-#define checkTimeoutExpired() (this->ioTimeout > 0 && ((uint16_t)millis() - this->timeoutStartMilliseconds) > this->ioTimeout)
+#define checkTimeoutExpired() (this->ioTimeout > 0 && (milliseconds() - this->timeoutStartMilliseconds) > this->ioTimeout)
 
 // Decode VCSEL (vertical cavity surface emitting laser) pulse period in PCLKs from register value based on VL53L0X_decode_vcsel_period()
 #define decodeVcselPeriod(registerValue) (((registerValue) + 1) << 1)
@@ -26,13 +21,40 @@
 // PLL_period_ps = 1655, macro_period_vclks = 2304
 #define calcMacroPeriod(vcselPeriodPCLKs) ((((uint32_t)2304 * (vcselPeriodPCLKs) * 1655) + 500) / 1000)
 
+/*** Helper functions ***/
+
+uint64_t milliseconds() {
+	std::timespec ts;
+	std::clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (ts.tv_sec * 1000 + ts.tv_nsed / 1000);
+}
+
 /*** Constructors ***/
 
-VL53L0X::VL53L0X(): address(ADDRESS_DEFAULT), ioTimeout(0), didTimeout(false) {}
+VL53L0X::VL53L0X(const int16_t xshutGPIOPin, const uint8_t address) {
+	this->xshutGPIOPin = xshutGPIOPin;
+	this->address = address;
+	this->i2cFileDescriptor = -1;
+
+	this->ioTimeout = 0;
+	this->didTimeout = false;
+}
 
 /*** Public Methods ***/
 
 bool VL53L0X::init(bool ioMode2v8) {
+	// Set XSHUT pin mode (if pin set)
+	if (this->xshutGPIOPin >= 0) {
+		pinMode(this->xshutGPIOPin, OUTPUT);
+		digitalWrite(this->xshutGPIOPin, HIGH);
+	}
+
+	// Initialize I2C communication
+	this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
+	if (this->i2cFileDescriptor == -1) {
+		throw(std::string("Error initializing I2C communication: ") + std::string(strerror(errno)));
+	}
+
 	// VL53L0X_DataInit() begin
 
 	// sensor uses 1V8 mode for I/O by default; switch to 2V8 mode if necessary
@@ -56,7 +78,7 @@ bool VL53L0X::init(bool ioMode2v8) {
 	this->writeRegister(MSRC_CONFIG_CONTROL, this->readRegister(MSRC_CONFIG_CONTROL) | 0x12);
 
 	// set final range signal rate limit to 0.25 MCPS (million counts per second)
-	setSignalRateLimit(0.25);
+	this->setSignalRateLimit(0.25);
 
 	this->writeRegister(SYSTEM_SEQUENCE_CONFIG, 0xFF);
 
@@ -209,7 +231,7 @@ bool VL53L0X::init(bool ioMode2v8) {
 
 	// -- VL53L0X_SetGpioConfig() end
 
-	this->measurementTimingBudgetMicroseconds = getMeasurementTimingBudget();
+	this->measurementTimingBudgetMicroseconds = this->getMeasurementTimingBudget();
 
 	// "Disable MSRC and TCC by default"
 	// MSRC = Minimum Signal Rate Check
@@ -221,7 +243,7 @@ bool VL53L0X::init(bool ioMode2v8) {
 	// -- VL53L0X_SetSequenceStepEnable() end
 
 	// "Recalculate timing budget"
-	setMeasurementTimingBudget(this->measurementTimingBudgetMicroseconds);
+	this->setMeasurementTimingBudget(this->measurementTimingBudgetMicroseconds);
 
 	// VL53L0X_StaticInit() end
 
@@ -230,7 +252,7 @@ bool VL53L0X::init(bool ioMode2v8) {
 	// -- VL53L0X_perform_vhv_calibration() begin
 
 	this->writeRegister(SYSTEM_SEQUENCE_CONFIG, 0x01);
-	if (!performSingleRefCalibration(0x40)) {
+	if (!this->performSingleRefCalibration(0x40)) {
 		return false;
 	}
 
@@ -239,7 +261,7 @@ bool VL53L0X::init(bool ioMode2v8) {
 	// -- VL53L0X_perform_phase_calibration() begin
 
 	this->writeRegister(SYSTEM_SEQUENCE_CONFIG, 0x02);
-	if (!performSingleRefCalibration(0x00)) {
+	if (!this->performSingleRefCalibration(0x00)) {
 		return false;
 	}
 
@@ -258,103 +280,48 @@ void VL53L0X::setAddress(uint8_t newAddress) {
 	this->address = newAddress;
 }
 
+
 void VL53L0X::writeRegister(uint8_t register, uint8_t value) {
-	Wire.beginTransmission(address);
-	Wire.write(register);
-	Wire.write(value);
-	lastStatus = Wire.endTransmission();
+	int p = wiringPiI2CWriteReg8(this->i2cFileDescriptor, register, value);
+	lastStatus = (p == -1 ? errno : 0);
 }
 
 void VL53L0X::writeRegister16Bit(uint8_t register, uint16_t value) {
-	Wire.beginTransmission(address);
-	Wire.write(register);
-	// value high byte
-	Wire.write((value >> 8) & 0xFF);
-	// value low byte
-	Wire.write(value & 0xFF);
-	lastStatus = Wire.endTransmission();
+	int p = wiringPiI2CWriteReg16(this->i2cFileDescriptor, register, value);
+	lastStatus = (p == -1 ? errno : 0);
 }
 
 void VL53L0X::writeRegister32Bit(uint8_t register, uint32_t value) {
-	Wire.beginTransmission(address);
-	Wire.write(register);
-	// value highest byte
-	Wire.write((value >> 24) & 0xFF);
-	Wire.write((value >> 16) & 0xFF);
-	Wire.write((value >> 8) & 0xFF);
-	// value lowest byte
-	Wire.write(value & 0xFF);
-	lastStatus = Wire.endTransmission();
+	int p = wiringPiI2CWriteReg32(this->i2cFileDescriptor, register, value);
+	lastStatus = (p == -1 ? errno : 0);
 }
 
 void VL53L0X::writeRegisterMultiple(uint8_t register, const uint8_t* source, uint8_t count) {
-	Wire.beginTransmission(address);
-	Wire.write(register);
-
-	while (count-- > 0) {
-		Wire.write(*(source++));
-	}
-
-	lastStatus = Wire.endTransmission();
+	int p = wiringPiI2CWriteRegBlock(this->i2cFileDescriptor, register, source, count);
+	lastStatus = (p == -1 ? errno : 0);
 }
 
 uint8_t VL53L0X::readRegister(uint8_t register) {
-	uint8_t value;
-
-	Wire.beginTransmission(address);
-	Wire.write(register);
-	lastStatus = Wire.endTransmission();
-
-	Wire.requestFrom(address, (uint8_t)1);
-	value = Wire.read();
-
-	return value;
+	int p = wiringPiI2CReadReg8(this->i2cFileDescriptor, register);
+	lastStatus = (p == -1 ? errno : 0);
+	return p;
 }
 
 uint16_t VL53L0X::readRegister16Bit(uint8_t register) {
-	uint16_t value;
-
-	Wire.beginTransmission(address);
-	Wire.write(register);
-	lastStatus = Wire.endTransmission();
-
-	Wire.requestFrom(address, (uint8_t)2);
-	// value high byte
-	value = (uint16_t)Wire.read() << 8;
-	// value low byte
-	value |= Wire.read();
-
-	return value;
+	int p = wiringPiI2CReadReg16(this->i2cFileDescriptor, register);
+	lastStatus = (p == -1 ? errno : 0);
+	return p;
 }
 
 uint32_t VL53L0X::readRegister32Bit(uint8_t register) {
-	uint32_t value;
-
-	Wire.beginTransmission(address);
-	Wire.write(register);
-	lastStatus = Wire.endTransmission();
-
-	Wire.requestFrom(address, (uint8_t)4);
-	// value highest byte
-	value = (uint32_t)Wire.read() << 24;
-	value |= (uint32_t)Wire.read() << 16;
-	value |= (uint16_t)Wire.read() << 8;
-	// value lowest byte
-	value |= Wire.read();
-
-	return value;
+	int p = wiringPiI2CReadReg32(this->i2cFileDescriptor, register);
+	lastStatus = (p == -1 ? errno : 0);
+	return p;
 }
 
 void VL53L0X::readRegisterMultiple(uint8_t register, uint8_t* destination, uint8_t count) {
-	Wire.beginTransmission(address);
-	Wire.write(register);
-	lastStatus = Wire.endTransmission();
-
-	Wire.requestFrom(address, count);
-
-	while (count-- > 0) {
-		*(destination++) = Wire.read();
-	}
+	int p = wiringPiI2CReadRegBlock(this->i2cFileDescriptor, register, destination, count);
+	lastStatus = (p == -1 ? errno : 0);
 }
 
 bool VL53L0X::setSignalRateLimit(float limitMCPS) {

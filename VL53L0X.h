@@ -1,5 +1,17 @@
+/**
+ * Most of the functionality of this library is based on the VL53L0X API provided by ST (STSW-IMG005)
+ * and some of the explanatory comments are quoted or paraphrased from the API source code, API user manual (UM2039), and the VL53L0X datasheet.
+ **/
+
 #ifndef _VL53L0X_H
 #define _VL53L0X_H
+
+#include <cerrno>
+#include <cstring>
+#include <ctime>
+#include <string>
+#include <wiringPi>
+#include <wiringPiI2C>
 
 class VL53L0X {
 	public:
@@ -12,16 +24,19 @@ class VL53L0X {
 
 		/*** Constructors and destructors ***/
 
-		VL53L0X();
+		VL53L0X(const int16_t xshutGPIOPin = -1, const uint8_t address = ADDRESS_DEFAULT);
 
 		/*** Public methods ***/
 
 		/**
-		 * Initialize sensor using sequence Based on VL53L0X_DataInit(), VL53L0X_StaticInit(), and VL53L0X_PerformRefCalibration().
+		 * \brief Initialize sensor using sequence Based on VL53L0X_DataInit(), VL53L0X_StaticInit(), and VL53L0X_PerformRefCalibration().
 		 *
-		 * This function does not perform reference SPAD calibration (VL53L0X_PerformRefSpadManagement()), since the API user manual says that it is performed by ST on the bare modules;
-		 * it seems like that should work well enough unless a cover glass is added.
+		 * This function does not perform reference SPAD calibration (VL53L0X_PerformRefSpadManagement()),
+		 * since the API user manual says that it is performed by ST on the bare modules;
+		 * It seems like that should work well enough unless a cover glass is added.
 		 * If ioMode2v8 (optional) is true or not given, the sensor is configured for 2V8 mode.
+		 *
+		 * \return true if initialization succeeded.
 		 */
 		bool init(bool ioMode2v8 = true);
 
@@ -240,17 +255,16 @@ class VL53L0X {
 	private:
 		/*** Private fields ***/
 
+		int i2cFileDescriptor;
+		uint8_t xshutGPIOPin;
 		uint8_t address;
-		uint16_t ioTimeout;
-		bool didTimeout;
-		uint16_t timeoutStartMilliseconds;
 
-		/**
-		 * read by init and used when starting measurement;
-		 * is StopVariable field of VL53L0X_DevData_t structure in API
-		 */
-		uint8_t stopVariable;
 		uint32_t measurementTimingBudgetMicroseconds;
+		uint64_t timeoutStartMilliseconds;
+		uint64_t ioTimeout;
+		bool didTimeout;
+		// read by init and used when starting measurement; is StopVariable field of VL53L0X_DevData_t structure in API
+		uint8_t stopVariable;
 
 		/*** Private methods ***/
 
@@ -331,6 +345,3 @@ class VL53L0X {
 };
 
 #endif
-
-
-
