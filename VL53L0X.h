@@ -10,10 +10,10 @@
 #include <cstring>
 #include <ctime>
 #include <string>
+#include <unistd.h>
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
 
-//
 #define VL53L0X_ADDRESS_DEFAULT 0b0101001
 
 class VL53L0X {
@@ -136,6 +136,9 @@ class VL53L0X {
 		 * \return true if initialization succeeded.
 		 */
 		bool init(bool ioMode2v8 = true);
+
+		void powerOn();
+		void powerOff();
 
 		/**
 		 * Write an 8-bit register.

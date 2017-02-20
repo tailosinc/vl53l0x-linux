@@ -43,8 +43,10 @@ bool VL53L0X::init(bool ioMode2v8) {
 	// Set XSHUT pin mode (if pin set)
 	if (this->xshutGPIOPin >= 0) {
 		pinMode(this->xshutGPIOPin, OUTPUT);
-		digitalWrite(this->xshutGPIOPin, HIGH);
 	}
+
+	// Enable the sensor
+	this->powerOn();
 
 	// Initialize I2C communication
 	this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
@@ -272,11 +274,17 @@ bool VL53L0X::init(bool ioMode2v8) {
 	return true;
 }
 
-void VL53L0X::setAddress(uint8_t newAddress) {
-	this->writeRegister(I2C_SLAVE_DEVICE_ADDRESS, newAddress & 0x7F);
-	this->address = newAddress;
+void VL53L0X::powerOn() {
+	if (this->xshutGPIOPin >= 0) {
+		digitalWrite(this->xshutGPIOPin, HIGH);
+	}
 }
 
+void VL53L0X::powerOff() {
+	if (this->xshutGPIOPin >= 0) {
+		digitalWrite(this->xshutGPIOPin, LOW);
+	}
+}
 
 void VL53L0X::writeRegister(uint8_t reg, uint8_t value) {
 	int p = wiringPiI2CWriteReg8(this->i2cFileDescriptor, reg, value);
@@ -377,6 +385,22 @@ void VL53L0X::readRegisterMultiple(uint8_t reg, uint8_t* destination, uint8_t co
 
 	for (int i = 0; i < count; ++i) {
 		destination[i] = buffer[i] & 0xFF;
+	}
+}
+
+void VL53L0X::setAddress(uint8_t newAddress) {
+	// Ensure power state
+	this->powerOn();
+	// Set new I2C address
+	this->writeRegister(I2C_SLAVE_DEVICE_ADDRESS, newAddress & 0x7F);
+	// Close I2C communication on old address
+	close(this->address);
+	// Save new address
+	this->address = newAddress;
+	// Reinitialize I2C communication on new address
+	this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
+	if (this->i2cFileDescriptor == -1) {
+		throw(std::string("Error initializing I2C communication on new address: ") + std::string(strerror(errno)));
 	}
 }
 
