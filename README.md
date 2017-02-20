@@ -87,7 +87,13 @@ g++ -I/path/to/VL53L0X.h -l/path/to/libvl53l0x.so your_code.cpp
 ```
 
 ### Examples
-_TODO: patch examples, add CMake target for them, create multiple sensors example, add explanations here_
+Build examples with:
+```
+cd build
+cmake ..
+make examples
+```
+_TODO: patch examples, create multiple sensors example, add explanations here_
 
 ---
 
