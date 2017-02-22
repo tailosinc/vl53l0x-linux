@@ -52,14 +52,4 @@ target_include_directories (vl53l0x PUBLIC ${WIRING_PI_HEADER_DIR})
 target_link_libraries (vl53l0x LINK_PUBLIC ${WIRING_PI_SHARED_OBJ})
 
 ### Examples
-set (VL53L0X_EXAMPLES
-	example_multiple
-)
-
-# Multiple sensors example
-add_executable (example_multiple EXCLUDE_FROM_ALL examples/Multiple/main.cpp)
-target_include_directories (example_multiple PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${WIRING_PI_HEADER_DIR})
-target_link_libraries (example_multiple LINK_PUBLIC vl53l0x ${WIRING_PI_SHARED_OBJ})
-
-# Examples make target (`make examples` to build)
-add_custom_target (examples DEPENDS ${VL53L0X_EXAMPLES})
+add_subdirectory (examples)
