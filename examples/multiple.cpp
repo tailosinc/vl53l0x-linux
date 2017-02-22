@@ -6,7 +6,7 @@
 
 int main() {
 	// Initialize GPIO connectivity
-	wiringPiSetupGpio();
+	wiringPiSetup();
 
 	// Create sensor objects
 	VL53L0X* sensors[3];
@@ -37,7 +37,7 @@ int main() {
 	sensors[0]->powerOn();
 	sensors[1]->powerOn();
 
-	// 1000 readings every half second
+	// 1000 readings for every sensor every half second
 	for (int i = 0; i < 1000; ++i) {
 		std::cout << i << ":" << std::endl;
 		for (int i = 0; i < 3; ++i) {
