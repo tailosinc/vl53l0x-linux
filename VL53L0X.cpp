@@ -277,6 +277,15 @@ bool VL53L0X::init(bool ioMode2v8) {
 void VL53L0X::powerOn() {
 	if (this->xshutGPIOPin >= 0) {
 		digitalWrite(this->xshutGPIOPin, HIGH);
+		// t_boot is 1.2ms max
+		usleep(1200);
+
+		// Reinitialize I2C communication
+		/*close(this->address);
+		this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
+		if (this->i2cFileDescriptor == -1) {
+			throw(std::string("Error initializing I2C communication on new address: ") + std::string(strerror(errno)));
+		}*/
 	}
 }
 
@@ -290,7 +299,7 @@ void VL53L0X::writeRegister(uint8_t reg, uint8_t value) {
 	int p = wiringPiI2CWriteReg8(this->i2cFileDescriptor, reg, value);
 	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
-		throw(std::string("Error writing byte to register"));
+		throw(std::string("Error writing byte to register: ") + std::string(strerror(errno)));
 	}
 }
 
@@ -298,7 +307,7 @@ void VL53L0X::writeRegister16Bit(uint8_t reg, uint16_t value) {
 	int p = wiringPiI2CWriteReg16(this->i2cFileDescriptor, reg, value);
 	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
-		throw(std::string("Error writing word to register"));
+		throw(std::string("Error writing word to register: ") + std::string(strerror(errno)));
 	}
 }
 
@@ -751,7 +760,11 @@ uint16_t VL53L0X::readRangeContinuousMillimeters() {
 
 	// assumptions: Linearity Corrective Gain is 1000 (default);
 	// fractional ranging is not enabled
-	uint16_t range = this->readRegister16Bit(RESULT_RANGE_STATUS + 10);
+	// Note: reading 16-bit register was working on Arduino but here it's not, thus double read and manual addition
+	// uint16_t range = this->readRegister16Bit(RESULT_RANGE_STATUS + 10);
+	uint8_t rangeA = this->readRegister(RESULT_RANGE_STATUS + 10);
+	uint8_t rangeB = this->readRegister(RESULT_RANGE_STATUS + 11);
+	uint16_t range = ((uint16_t)(rangeA)<<8) + (uint16_t)(rangeB);
 
 	this->writeRegister(SYSTEM_INTERRUPT_CLEAR, 0x01);
 
