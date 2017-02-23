@@ -22,8 +22,13 @@ int main() {
 	wiringPiSetup();
 
 	VL53L0X sensor;
-	sensor.init();
-	sensor.setTimeout(500);
+	try {
+		sensor.init();
+		sensor.setTimeout(500);
+	} catch (std::string err) {
+		std::cerr << err;
+		return 1;
+	}
 
 	#ifdef LONG_RANGE
 		// Lower the return signal rate limit (default is 0.25 MCPS)
@@ -50,5 +55,8 @@ int main() {
 		} else {
 			std::cout << distance << std::endl;
 		}
+		usleep(500*1000);
 	}
+
+	return 0;
 }
