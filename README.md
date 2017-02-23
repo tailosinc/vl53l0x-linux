@@ -7,26 +7,27 @@ Release date: _not yet released_
 ## Summary
 This is a library for Linux that helps interface with ST's [VL53L0X time-of-flight distance sensor](https://www.pololu.com/product/2490). The library makes it simple to configure the sensor and read range data from it via I&sup2;C.
 
-Additionally it provides (_will provide_) support for managing multiple sensors connected via the same bus by using GPIO to shut-down/bring-up individual sensors via their XSHUT pins.
+Additionally it provides (_will provide_) support for managing multiple sensors connected to the same bus by managing hardware standby of individual sensors via their XSHUT pins.
 
 ---
 
 ## Development status
-* `Wire.h` replaced with `WiringPi` (yet to be tested)
-* constructor extended to pass required data for I2C, GPIO etc usage
-* preliminary support for managing XSHUT added in constructor
+* `Wire.h` replaced with `WiringPi` (tested & working)
+* constructor extended to pass required data for I&sup2;C and GPIO usage
+* added support for hardware standby management by XSHUT pin (via GPIO)
 * improved consistency of code style, moved documentation comments to header (why would you want them with source?), etc
+* tested and working: single sensor (`examples/single`)
+* tested and not fully working: multiple sensors (`examples/multiple`)
 
 TODO:
-* remaining support for multiple sensors - XSHUT triggers where needed, methods for simple shutdown/bringup…
-* tests
-* examples
+* more tests
+* more examples
 * documentation
 
 ---
 
 ## Used libraries/dependencies
-* [WiringPi (my fork)](https://github.com/mjbogusz/wiringPi) - for both I2C and GPIO connectivity. My forked version includes some added functionality.
+* [WiringPi (my fork)](https://github.com/mjbogusz/wiringPi) - for both I&sup2;C and GPIO connectivity. My forked version adds support for Odroid boards.
 
 ---
 
@@ -57,7 +58,7 @@ GPIOX.BIT21 (Pin #7) - XSHUT
 Of course, you can also use `I2CB_SDA/SCL` and any other `GPIOX` and `Ground` pins, see [Hardkernel's page for pins' description](http://odroid.com/dokuwiki/doku.php?id=en:c2_hardware#expansion_connectors).
 
 ##### Raspberry Pi
-_no connection example yet_
+_no connection example yet, analogic to Odroid one_
 
 ### Software
 #### Building the library
@@ -76,7 +77,7 @@ CMake will try to force gcc/g++-6 usage but will silently fallback to default sy
 #### Using the library
 _TODO: elaborate_
 
-Include `VL53L0X.h`, use `VL53L0X` class.
+Include `VL53L0X.h`, use `VL53L0X` class. See examples' code.
 
 #### Building your code using the library
 Link against built `libvl53l0x.so`.
@@ -93,7 +94,12 @@ cd build
 cmake ..
 make examples
 ```
-_TODO: patch examples, create multiple sensors example, add explanations here_
+and run with
+```
+./examples/single
+./examples/multiple
+```
+_TODO: more examples, add explanations here_
 
 ---
 
