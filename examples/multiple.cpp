@@ -81,10 +81,8 @@ int main() {
 	}
 
 	// Clean-up: delete objects, set GPIO/XSHUT pins to low.
-	delete sensors[0];
-	delete sensors[1];
-	delete sensors[2];
 	for (int i = 0; i < SENSOR_COUNT; ++i) {
+		delete sensors[i];
 		digitalWrite(pins[i], LOW);
 	}
 	return 0;
