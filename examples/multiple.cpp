@@ -32,10 +32,11 @@ int main() {
 	// Initialize GPIO connectivity
 	wiringPiSetup();
 
-	// Ensure software shutdown
+	// Create sensors (and ensure GPIO pin mode)
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 		pinMode(pins[i], OUTPUT);
-		digitalWrite(pins[i], LOW);
+		sensors[i] = new VL53L0X(pins[i]);
+		sensors[i]->powerOff();
 	}
 	if (exitFlag) {
 		return 0;
@@ -48,7 +49,6 @@ int main() {
 	// Note: don't power off - it will reset the address to default!
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 		// Create...
-		sensors[i] = new VL53L0X(pins[i]);
 		// ...init...
 		sensors[i]->init();
 		// ...set timeout...
