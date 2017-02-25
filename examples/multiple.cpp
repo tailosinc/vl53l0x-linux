@@ -12,15 +12,18 @@ void sigintHandler(int) {
 
 int main() {
 	// Configuration constants
-	// Number of sensors. If changed, make sure to adjust pins and addresses size accordingly.
-	const int SENSOR_COUNT = 3;
+	// Number of sensors. If changed, make sure to adjust pins and addresses accordingly (ie to match size).
+	const int SENSOR_COUNT = 6;
 	// GPIO pins to use for sensors' XSHUT. As exported by WiringPi.
-	const uint8_t pins[SENSOR_COUNT] = { 0, 2, 3 };
+	const uint8_t pins[SENSOR_COUNT] = { 0, 1, 2, 3, 4, 5 };
 	// Sensors' addresses that will be set and used. These have to be unique.
 	const uint8_t addresses[SENSOR_COUNT] = {
 		VL53L0X_ADDRESS_DEFAULT + 2,
 		VL53L0X_ADDRESS_DEFAULT + 4,
-		VL53L0X_ADDRESS_DEFAULT + 6
+		VL53L0X_ADDRESS_DEFAULT + 6,
+		VL53L0X_ADDRESS_DEFAULT + 10,
+		VL53L0X_ADDRESS_DEFAULT + 12,
+		VL53L0X_ADDRESS_DEFAULT + 14
 	};
 
 	// Register SIGINT handler
