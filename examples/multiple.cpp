@@ -5,58 +5,49 @@
 #include <unistd.h>
 
 int main() {
+	// Configuration constants
+	// Number of sensors. If changed, make sure to adjust pins and addresses size accordingly.
+	const int SENSOR_COUNT = 3;
+	// GPIO pins to use for sensors' XSHUT. As exported by WiringPi.
+	const uint8_t pins[SENSOR_COUNT] = { 0, 2, 3 };
+	// Sensors' addresses that will be set and used. These have to be unique.
+	const uint8_t addresses[SENSOR_COUNT] = {
+		VL53L0X_ADDRESS_DEFAULT + 2,
+		VL53L0X_ADDRESS_DEFAULT + 4,
+		VL53L0X_ADDRESS_DEFAULT + 6
+	};
+
 	// Initialize GPIO connectivity
 	wiringPiSetup();
 
 	// Ensure software shutdown
-	digitalWrite(0, LOW);
-	digitalWrite(2, LOW);
-	digitalWrite(3, LOW);
-
-	// Create sensor objects
-	VL53L0X* sensors[3];
-	if (argc > 1) {
-		// GPIO pin 0 - GPIOX.BIT19 - Pin number 11
-		sensors[0] = new VL53L0X(0, VL53L0X_ADDRESS_DEFAULT);
-		// GPIO pin 2 - GPIOX.BIT11 - Pin number 13
-		sensors[1] = new VL53L0X(2, VL53L0X_ADDRESS_DEFAULT + 8);
-		// GPIO pin 3 - GPIOX.BIT9 - Pin number 15
-		sensors[2] = new VL53L0X(3, VL53L0X_ADDRESS_DEFAULT + 16);
-	} else {
-		sensors[0] = new VL53L0X(0);
-		sensors[1] = new VL53L0X(2);
-		sensors[2] = new VL53L0X(3);
+	for (int i = 0; i < SENSOR_COUNT; ++i) {
+		pinMode(pins[i], OUTPUT);
+		digitalWrite(pins[i], LOW);
 	}
 
-	std::cout << "Sensors created...\n";
+	// Create sensor objects' array
+	VL53L0X* sensors[SENSOR_COUNT];
 
-	// Initialize sensors and set their addresses
-	// Sensor 0 (no address change, power off)
-	sensors[0]->init();
-	sensors[0]->setTimeout(200);
-	sensors[0]->powerOff();
-	std::cout << "Sensor 0 initialized\n";
-	// Sensor 1 (change address, power off)
-	sensors[1]->init();
-	sensors[1]->setTimeout(200);
-	sensors[1]->setAddress(VL53L0X_ADDRESS_DEFAULT + 1);
-	sensors[1]->powerOff();
-	std::cout << "Sensor 1 initialized\n";
-	// Sensor 2 (change address, no power off)
-	sensors[2]->init();
-	sensors[2]->setTimeout(200);
-	sensors[2]->setAddress(VL53L0X_ADDRESS_DEFAULT + 2);
-	std::cout << "Sensor 2 initialized\n";
-	// Power on sensors 0 and 1
-	sensors[0]->powerOn();
-	sensors[1]->powerOn();
-
-	std::cout << "Sensors initialized and powered on\n";
+	// For each sensor: create object, init the sensor (ensures power on), set timeout and address
+	// Note: don't power off - it will reset the address to default!
+	for (int i = 0; i < SENSOR_COUNT; ++i) {
+		// Create...
+		sensors[i] = new VL53L0X(pins[i]);
+		// ...init...
+		sensors[i]->init();
+		// ...set timeout...
+		sensors[i]->setTimeout(200);
+		// ...and set address
+		sensors[i]->setAddress(addresses[i]);
+		// Also, notify user.
+		std::cout << "Sensor " << i << " initialized\n";
+	}
 
 	// 1000 readings for every sensor every half second
-	for (int i = 0; i < 1000; ++i) {
-		std::cout << i << ":" << std::endl;
-		for (int i = 0; i < 3; ++i) {
+	for (int j = 0; j < 1000; ++j) {
+		std::cout << "Reading " << j << ":" << std::endl;
+		for (int i = 0; i < SENSOR_COUNT; ++i) {
 			uint16_t distance;
 			try {
 				distance = sensors[i]->readRangeSingleMillimeters();
@@ -74,9 +65,12 @@ int main() {
 		usleep(500*1000);
 	}
 
-	// Clean-up
+	// Clean-up: delete objects, set GPIO/XSHUT pins to low.
 	delete sensors[0];
 	delete sensors[1];
 	delete sensors[2];
+	for (int i = 0; i < SENSOR_COUNT; ++i) {
+		digitalWrite(pins[i], LOW);
+	}
 	return 0;
 }
