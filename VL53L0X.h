@@ -14,7 +14,8 @@
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
 
-#define VL53L0X_ADDRESS_DEFAULT 0b0101001
+//#define VL53L0X_ADDRESS_DEFAULT 0b0101001
+#define VL53L0X_ADDRESS_DEFAULT 0x29
 
 class VL53L0X {
 	public:

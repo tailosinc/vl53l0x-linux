@@ -277,15 +277,8 @@ bool VL53L0X::init(bool ioMode2v8) {
 void VL53L0X::powerOn() {
 	if (this->xshutGPIOPin >= 0) {
 		digitalWrite(this->xshutGPIOPin, HIGH);
-		// t_boot is 1.2ms max
-		usleep(1200);
-
-		// Reinitialize I2C communication
-		/*close(this->address);
-		this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
-		if (this->i2cFileDescriptor == -1) {
-			throw(std::string("Error initializing I2C communication on new address: ") + std::string(strerror(errno)));
-		}*/
+		// t_boot is 1.2ms max, wait 2ms just to be sure
+		usleep(2000);
 	}
 }
 
