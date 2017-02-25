@@ -1,33 +1,30 @@
 # VL53L0X library for Linux
-Version: _not yet released_<br>
-Release date: _not yet released_
+Version: 0.1
+Release date: 25.02.2017
 
 ---
 
 ## Summary
 This is a library for Linux that helps interface with ST's [VL53L0X time-of-flight distance sensor](https://www.pololu.com/product/2490). The library makes it simple to configure the sensor and read range data from it via I&sup2;C.
 
-Additionally it provides (_will provide_) support for managing multiple sensors connected to the same bus by managing hardware standby of individual sensors via their XSHUT pins.
+Additionally it provides support for managing multiple sensors connected to the same bus by managing hardware standby of individual sensors via their XSHUT pins, see [multiple sensors section](#multiple-sensors)
 
 ---
 
 ## Development status
-* `Wire.h` replaced with `WiringPi` (tested & working)
-* constructor extended to pass required data for I&sup2;C and GPIO usage
-* added support for hardware standby management by XSHUT pin (via GPIO)
-* improved consistency of code style, moved documentation comments to header (why would you want them with source?), etc
-* tested and working: single sensor (`examples/single`)
-* tested and not fully working: multiple sensors (`examples/multiple`)
+* `Wire.h` replaced with `WiringPi`
+* Multiple sensors support added
+* Hardware standby (XSHUT) management support added (part of multiple sensors support)
+* Single sensor: tested and working (`examples/single`)
+* Multiple sensors: tested and working (`examples/multiple`)
+* Code style consistency improved
+* Documentation moved to header (why would you want them with source?)
+* Other minor improvements
 
 TODO:
-* more tests
-* more examples
-* documentation
-
----
-
-## Used libraries/dependencies
-* [WiringPi (my fork)](https://github.com/mjbogusz/wiringPi) - for both I&sup2;C and GPIO connectivity. My forked version adds support for Odroid boards.
+* Improve/add missing documentation
+* More examples/tests (?)
+* Better error handling/reporting (?)
 
 ---
 
@@ -35,6 +32,11 @@ TODO:
 * Odroid C2 - main target board
 * Odroid C1/XU3/XU4 - as supported by linked WiringPi fork
 * Raspberry Pi (any) - as supported by base WiringPi library
+
+---
+
+## Used libraries/dependencies
+* [WiringPi (my fork)](https://github.com/mjbogusz/wiringPi) - for both I&sup2;C and GPIO connectivity. My forked version adds support for Odroid boards and for writing block data to I&sup2;C
 
 ---
 
@@ -58,7 +60,15 @@ GPIOX.BIT21 (Pin #7) - XSHUT
 Of course, you can also use `I2CB_SDA/SCL` and any other `GPIOX` and `Ground` pins, see [Hardkernel's page for pins' description](http://odroid.com/dokuwiki/doku.php?id=en:c2_hardware#expansion_connectors).
 
 ##### Raspberry Pi
-_no connection example yet, analogic to Odroid one_
+```
+      Raspberry Pi 3   VL53L0X board
+--------------------   -------------
+ 3.3V Power (Pin #1) - VIN
+       SDA1 (Pin #3) - SDA
+       SCL1 (Pin #5) - SCL
+  GPIO_GCLK (Pin #7) - XSHUT
+     Ground (Pin #9) - GND
+```
 
 ### Software
 #### Building the library
@@ -70,24 +80,55 @@ make
 
 When building you can specify location of (already built) WiringPi library.<br>
 It may be specified via ENV (`WIRINGPI_DIR="/path/to/wiringpi/dir" cmake`) or via cmake's definition (`cmake -D WIRINGPI_DIR="/path/to/wiringpi/dir"`).<br>
-By default, it will look for `wiringPi` directory in the same directory the main VL53L0X directory resides (`../wiringPi`).
+By default, it will look for `wiringPi` directory in the same directory the main VL53L0X directory resides (`../wiringPi`).<br>
+_Note: wiringPi may become a git submodule in the future_
 
-CMake will try to force gcc/g++-6 usage but will silently fallback to default system compiler if these are not found.
+CMake will _try_ to force gcc/g++-6 usage but will silently fallback to default system compiler if these are not found.
 
 #### Using the library
-_TODO: elaborate_
+* Include `VL53L0X.h`
+* Create instance of `VL53L0X` class
+* Call `.init()`
+* (Optional) set timing budget etc
+* For single range reading:
+	* Call `.readRangeSingleMillimeters()`
+	* Check for possible timeout using `.timeoutOccurred()` (returned range value will be at maximum of 65535)
+* For continuous ranging:
+	* Call `.startContinuous()`
+	* Read rangings using `.readRangeContinuousMillimeters()`
+	* Check for timeout (like in single ranging)
+	* End with `.stopContinuous()`
 
-Include `VL53L0X.h`, use `VL53L0X` class. See examples' code.
+See `examples/single.cpp` for reference and [Multiple sensors section](#multiple-sensors) for instructions how to use multiple sensors at once.
 
 #### Building your code using the library
-Link against built `libvl53l0x.so`.
+Add `VL53L0X.h` to include path, link against built `libvl53l0x.so`.
 
 For example, compilation using g++:
 ```
 g++ -I/path/to/VL53L0X.h -l/path/to/libvl53l0x.so your_code.cpp
 ```
 
-### Examples
+### Multiple sensors
+Multiple sensors can be used easily by connecting them all to the same I&sup2;C bus and connecting their XSHUT pins to free GPIO pins of your board.
+
+Note that even putting the sensor to hardware standby (XSHUT low) will reset its address! Thus, the workflow is as such:
+* disable (power off) __all__ sensors
+* enable (power on) first sensor
+* set its address
+* enable second sensor, set its address
+* ...and so on
+
+That translates to following steps within your code:
+* initialize GPIO connectivity by calling `wiringPiSetup()` or `wiringPiSetupGpio()` and ensure the pins are in output mode (`pinMode(pin, OUTPUT)`)
+* pass XSHUT GPIO pin number to sensor object constructor (`VL53L0X(pin)`)
+* disable all sensors either by calling their `.powerOff()` methods or by writing low value to their GPIO pins (`digitalWrite(pin, LOW)`)
+* initialize sensors one-by-one and set different address for each one before initializing the next one
+
+After that, reading range values from sensors is just like with single one.
+See `examples/multiple.cpp` for reference.
+
+## Examples
 Build examples with:
 ```
 cd build
