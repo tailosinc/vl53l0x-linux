@@ -1,8 +1,14 @@
 #include <VL53L0X.h>
 #include <wiringPi.h>
 
+#include <csignal>
 #include <iostream>
 #include <unistd.h>
+
+volatile sig_atomic_t exitFlag = 0;
+void sigintHandler(int) {
+	exitFlag = 1;
+}
 
 int main() {
 	// Configuration constants
@@ -17,13 +23,19 @@ int main() {
 		VL53L0X_ADDRESS_DEFAULT + 6
 	};
 
+	// Register SIGINT handler
+	signal(SIGINT, sigintHandler);
+
 	// Initialize GPIO connectivity
 	wiringPiSetup();
 
 	// Ensure software shutdown
-	for (int i = 0; i < SENSOR_COUNT; ++i) {
+	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 		pinMode(pins[i], OUTPUT);
 		digitalWrite(pins[i], LOW);
+	}
+	if (exitFlag) {
+		return 0;
 	}
 
 	// Create sensor objects' array
@@ -31,7 +43,7 @@ int main() {
 
 	// For each sensor: create object, init the sensor (ensures power on), set timeout and address
 	// Note: don't power off - it will reset the address to default!
-	for (int i = 0; i < SENSOR_COUNT; ++i) {
+	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 		// Create...
 		sensors[i] = new VL53L0X(pins[i]);
 		// ...init...
@@ -45,9 +57,10 @@ int main() {
 	}
 
 	// 1000 readings for every sensor every half second
-	for (int j = 0; j < 1000; ++j) {
+	for (int j = 0; !exitFlag && j < 1000; ++j) {
+		usleep(500*1000);
 		std::cout << "Reading " << j << ":" << std::endl;
-		for (int i = 0; i < SENSOR_COUNT; ++i) {
+		for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 			uint16_t distance;
 			try {
 				distance = sensors[i]->readRangeSingleMillimeters();
@@ -62,7 +75,6 @@ int main() {
 				std::cout << distance << std::endl;
 			}
 		}
-		usleep(500*1000);
 	}
 
 	// Clean-up: delete objects, set GPIO/XSHUT pins to low.
