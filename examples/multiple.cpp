@@ -32,6 +32,9 @@ int main() {
 	// Initialize GPIO connectivity
 	wiringPiSetup();
 
+	// Create sensor objects' array
+	VL53L0X* sensors[SENSOR_COUNT];
+
 	// Create sensors (and ensure GPIO pin mode)
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 		pinMode(pins[i], OUTPUT);
@@ -41,9 +44,6 @@ int main() {
 	if (exitFlag) {
 		return 0;
 	}
-
-	// Create sensor objects' array
-	VL53L0X* sensors[SENSOR_COUNT];
 
 	// For each sensor: create object, init the sensor (ensures power on), set timeout and address
 	// Note: don't power off - it will reset the address to default!
