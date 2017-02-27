@@ -23,7 +23,7 @@
 uint64_t milliseconds() {
 	timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (ts.tv_sec * 1000 + ts.tv_nsec / 1000);
+	return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
 /*** Constructors ***/
@@ -35,6 +35,11 @@ VL53L0X::VL53L0X(const int16_t xshutGPIOPin, const uint8_t address) {
 
 	this->ioTimeout = 0;
 	this->didTimeout = false;
+
+	this->lastStatus = 0;
+	this->measurementTimingBudgetMicroseconds = 33000;
+	this->stopVariable = 0;
+	this->timeoutStartMilliseconds = milliseconds();
 }
 
 /*** Public Methods ***/
@@ -297,7 +302,11 @@ void VL53L0X::writeRegister(uint8_t reg, uint8_t value) {
 }
 
 void VL53L0X::writeRegister16Bit(uint8_t reg, uint16_t value) {
-	int p = wiringPiI2CWriteReg16(this->i2cFileDescriptor, reg, value);
+	// Reverse endianness
+	uint16_t valueFixed = ((value & 0xFF) << 8) + ((value & 0xFF00) >> 8);
+
+	int p = wiringPiI2CWriteReg16(this->i2cFileDescriptor, reg, valueFixed);
+
 	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
 		throw(std::string("Error writing word to register: ") + std::string(strerror(errno)));
@@ -348,12 +357,14 @@ uint8_t VL53L0X::readRegister(uint8_t reg) {
 
 uint16_t VL53L0X::readRegister16Bit(uint8_t reg) {
 	int p = wiringPiI2CReadReg16(this->i2cFileDescriptor, reg);
-	lastStatus = (p == -1 ? errno : 0);
 
+	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
 		throw(std::string("Error reading word from register"));
 	}
-	return p;
+
+	// Reverse endianness
+	return ((p & 0xFF) << 8) + ((p & 0xFF00) >> 8);
 }
 
 uint32_t VL53L0X::readRegister32Bit(uint8_t reg) {
@@ -421,10 +432,7 @@ float VL53L0X::getSignalRateLimit() {
 }
 
 bool VL53L0X::setMeasurementTimingBudget(uint32_t budgetMicroseconds) {
-	SequenceStepEnables enables;
-	SequenceStepTimeouts timeouts;
-
-	// note that this is different than the value in get_
+	// note that these are different than values in get_
 	uint16_t const START_OVERHEAD = 1320;
 	uint16_t const END_OVERHEAD = 960;
 	uint16_t const MSRC_OVERHEAD = 660;
@@ -432,78 +440,72 @@ bool VL53L0X::setMeasurementTimingBudget(uint32_t budgetMicroseconds) {
 	uint16_t const DSS_OVERHEAD = 690;
 	uint16_t const PRE_RANGE_OVERHEAD = 660;
 	uint16_t const FINAL_RANGE_OVERHEAD = 550;
-
 	uint32_t const MIN_TIMING_BUDGET = 20000;
 
 	if (budgetMicroseconds < MIN_TIMING_BUDGET) {
 		return false;
 	}
 
+	VL53L0X::SequenceStepEnables enables;
+	VL53L0X::SequenceStepTimeouts timeouts;
+	this->getSequenceStepEnables(&enables);
+	this->getSequenceStepTimeouts(&enables, &timeouts);
+
 	uint32_t usedBudgetMicroseconds = START_OVERHEAD + END_OVERHEAD;
-
-	getSequenceStepEnables(&enables);
-	getSequenceStepTimeouts(&enables, &timeouts);
-
 	if (enables.tcc) {
 		usedBudgetMicroseconds += (timeouts.msrcDssTccMicroseconds + TCC_OVERHEAD);
 	}
-
 	if (enables.dss) {
 		usedBudgetMicroseconds += 2 * (timeouts.msrcDssTccMicroseconds + DSS_OVERHEAD);
 	} else if (enables.msrc) {
 		usedBudgetMicroseconds += (timeouts.msrcDssTccMicroseconds + MSRC_OVERHEAD);
 	}
-
 	if (enables.preRange) {
 		usedBudgetMicroseconds += (timeouts.preRangeMicroseconds + PRE_RANGE_OVERHEAD);
 	}
-
 	if (enables.finalRange) {
 		usedBudgetMicroseconds += FINAL_RANGE_OVERHEAD;
-
-		// "Note that the final range timeout is determined by the timing
-		// budget and the sum of all other timeouts within the sequence.
-		// If there is no room for the final range timeout, then an error
-		// will be set. Otherwise the remaining time will be applied to
-		// the final range."
-
-		if (usedBudgetMicroseconds > budgetMicroseconds) {
-			// "Requested timeout too big."
-			return false;
-		}
-
-		uint32_t finalRangeTimeoutMicroseconds = budgetMicroseconds - usedBudgetMicroseconds;
-
-		// set_sequence_step_timeout() begin
-		// (SequenceStepId == VL53L0X_SEQUENCESTEP_FINAL_RANGE)
-
-		// "For the final range timeout, the pre-range timeout
-		// must be added. To do this both final and pre-range
-		// timeouts must be expressed in macro periods MClks
-		// because they have different vcsel periods."
-
-		uint16_t finalRangeTimeoutMCLKs = timeoutMicrosecondsToMclks(finalRangeTimeoutMicroseconds, timeouts.finalRangeVCSELPeriodPCLKs);
-
-		if (enables.preRange) {
-			finalRangeTimeoutMCLKs += timeouts.preRangeMCLKs;
-		}
-
-		this->writeRegister16Bit(FINAL_RANGE_CONFIG_TIMEOUT_MACROP_HI, encodeTimeout(finalRangeTimeoutMCLKs));
-
-		// set_sequence_step_timeout() end
-
-		// store for internal reuse
-		this->measurementTimingBudgetMicroseconds = budgetMicroseconds;
 	}
+
+	// "Note that the final range timeout is determined by the timing
+	// budget and the sum of all other timeouts within the sequence.
+	// If there is no room for the final range timeout, then an error
+	// will be set. Otherwise the remaining time will be applied to
+	// the final range."
+
+	if (usedBudgetMicroseconds > budgetMicroseconds) {
+		// "Requested timeout too small."
+		return false;
+	}
+
+	uint32_t finalRangeTimeoutMicroseconds = budgetMicroseconds - usedBudgetMicroseconds;
+
+	// set_sequence_step_timeout() begin
+	// (SequenceStepId == VL53L0X_SEQUENCESTEP_FINAL_RANGE)
+
+	// "For the final range timeout, the pre-range timeout
+	// must be added. To do this both final and pre-range
+	// timeouts must be expressed in macro periods MClks
+	// because they have different vcsel periods."
+
+	uint16_t finalRangeTimeoutMCLKs = timeoutMicrosecondsToMclks(finalRangeTimeoutMicroseconds, timeouts.finalRangeVCSELPeriodPCLKs);
+
+	if (enables.preRange) {
+		finalRangeTimeoutMCLKs += timeouts.preRangeMCLKs;
+	}
+
+	this->writeRegister16Bit(FINAL_RANGE_CONFIG_TIMEOUT_MACROP_HI, encodeTimeout(finalRangeTimeoutMCLKs));
+
+	// set_sequence_step_timeout() end
+
+	// store for internal reuse
+	this->measurementTimingBudgetMicroseconds = budgetMicroseconds;
 
 	return true;
 }
 
 uint32_t VL53L0X::getMeasurementTimingBudget() {
-	SequenceStepEnables enables;
-	SequenceStepTimeouts timeouts;
-
-	// note that this is different than the value in set_
+	// note that these are different than values in set_
 	uint16_t const START_OVERHEAD = 1910;
 	uint16_t const END_OVERHEAD = 960;
 	uint16_t const MSRC_OVERHEAD = 660;
@@ -512,26 +514,24 @@ uint32_t VL53L0X::getMeasurementTimingBudget() {
 	uint16_t const PRE_RANGE_OVERHEAD = 660;
 	uint16_t const FINAL_RANGE_OVERHEAD = 550;
 
+	VL53L0X::SequenceStepEnables enables;
+	VL53L0X::SequenceStepTimeouts timeouts;
+	this->getSequenceStepEnables(&enables);
+	this->getSequenceStepTimeouts(&enables, &timeouts);
+
 	// "Start and end overhead times always present"
 	uint32_t budgetMicroseconds = START_OVERHEAD + END_OVERHEAD;
-
-	getSequenceStepEnables(&enables);
-	getSequenceStepTimeouts(&enables, &timeouts);
-
 	if (enables.tcc) {
 		budgetMicroseconds += (timeouts.msrcDssTccMicroseconds + TCC_OVERHEAD);
 	}
-
 	if (enables.dss) {
 		budgetMicroseconds += 2 * (timeouts.msrcDssTccMicroseconds + DSS_OVERHEAD);
 	} else if (enables.msrc) {
 		budgetMicroseconds += (timeouts.msrcDssTccMicroseconds + MSRC_OVERHEAD);
 	}
-
 	if (enables.preRange) {
 		budgetMicroseconds += (timeouts.preRangeMicroseconds + PRE_RANGE_OVERHEAD);
 	}
-
 	if (enables.finalRange) {
 		budgetMicroseconds += (timeouts.finalRangeMicroseconds + FINAL_RANGE_OVERHEAD);
 	}
@@ -544,11 +544,11 @@ uint32_t VL53L0X::getMeasurementTimingBudget() {
 bool VL53L0X::setVcselPulsePeriod(vcselPeriodType type, uint8_t periodPCLKs) {
 	uint8_t vcselPeriodValue = encodeVcselPeriod(periodPCLKs);
 
-	SequenceStepEnables enables;
-	SequenceStepTimeouts timeouts;
+	VL53L0X::SequenceStepEnables enables;
+	VL53L0X::SequenceStepTimeouts timeouts;
 
-	getSequenceStepEnables(&enables);
-	getSequenceStepTimeouts(&enables, &timeouts);
+	this->getSequenceStepEnables(&enables);
+	this->getSequenceStepTimeouts(&enables, &timeouts);
 
 	// "Apply specific settings for the requested clock period"
 	// "Re-calculate and apply timeouts, in macro periods"
@@ -754,10 +754,10 @@ uint16_t VL53L0X::readRangeContinuousMillimeters() {
 	// assumptions: Linearity Corrective Gain is 1000 (default);
 	// fractional ranging is not enabled
 	// Note: reading 16-bit register was working on Arduino but here it's not, thus double read and manual addition
-	// uint16_t range = this->readRegister16Bit(RESULT_RANGE_STATUS + 10);
-	uint8_t rangeA = this->readRegister(RESULT_RANGE_STATUS + 10);
-	uint8_t rangeB = this->readRegister(RESULT_RANGE_STATUS + 11);
-	uint16_t range = ((uint16_t)(rangeA)<<8) + (uint16_t)(rangeB);
+	uint16_t range = this->readRegister16Bit(RESULT_RANGE_STATUS + 10);
+	// uint8_t rangeA = this->readRegister(RESULT_RANGE_STATUS + 10);
+	// uint8_t rangeB = this->readRegister(RESULT_RANGE_STATUS + 11);
+	// uint16_t range = ((uint16_t)(rangeA)<<8) + (uint16_t)(rangeB);
 
 	this->writeRegister(SYSTEM_INTERRUPT_CLEAR, 0x01);
 
@@ -835,7 +835,7 @@ bool VL53L0X::getSPADInfo(uint8_t* count, bool* typeIsAperture) {
 	return true;
 }
 
-void VL53L0X::getSequenceStepEnables(SequenceStepEnables* enables) {
+void VL53L0X::getSequenceStepEnables(VL53L0X::SequenceStepEnables* enables) {
 	uint8_t sequenceConfig = this->readRegister(SYSTEM_SEQUENCE_CONFIG);
 
 	enables->tcc = (sequenceConfig >> 4) & 0x1;
@@ -845,24 +845,24 @@ void VL53L0X::getSequenceStepEnables(SequenceStepEnables* enables) {
 	enables->finalRange = (sequenceConfig >> 7) & 0x1;
 }
 
-void VL53L0X::getSequenceStepTimeouts(const SequenceStepEnables* enables, SequenceStepTimeouts* timeouts) {
-	timeouts->preRangeVCSELPeriodPCLKs = getVcselPulsePeriod(VcselPeriodPreRange);
+void VL53L0X::getSequenceStepTimeouts(const VL53L0X::SequenceStepEnables * enables, VL53L0X::SequenceStepTimeouts * timeouts) {
+	timeouts->preRangeVCSELPeriodPCLKs = this->getVcselPulsePeriod(VcselPeriodPreRange);
 
 	timeouts->msrcDssTccMCLKs = this->readRegister(MSRC_CONFIG_TIMEOUT_MACROP) + 1;
-	timeouts->msrcDssTccMicroseconds = timeoutMclksToMicroseconds(timeouts->msrcDssTccMCLKs, timeouts->preRangeVCSELPeriodPCLKs);
+	timeouts->msrcDssTccMicroseconds = this->timeoutMclksToMicroseconds(timeouts->msrcDssTccMCLKs, timeouts->preRangeVCSELPeriodPCLKs);
 
-	timeouts->preRangeMCLKs = decodeTimeout(this->readRegister16Bit(PRE_RANGE_CONFIG_TIMEOUT_MACROP_HI));
-	timeouts->preRangeMicroseconds = timeoutMclksToMicroseconds(timeouts->preRangeMCLKs, timeouts->preRangeVCSELPeriodPCLKs);
+	timeouts->preRangeMCLKs = this->decodeTimeout(this->readRegister16Bit(PRE_RANGE_CONFIG_TIMEOUT_MACROP_HI));
+	timeouts->preRangeMicroseconds = this->timeoutMclksToMicroseconds(timeouts->preRangeMCLKs, timeouts->preRangeVCSELPeriodPCLKs);
 
-	timeouts->finalRangeVCSELPeriodPCLKs = getVcselPulsePeriod(VcselPeriodFinalRange);
+	timeouts->finalRangeVCSELPeriodPCLKs = this->getVcselPulsePeriod(VcselPeriodFinalRange);
 
-	timeouts->finalRangeMCLKs = decodeTimeout(this->readRegister16Bit(FINAL_RANGE_CONFIG_TIMEOUT_MACROP_HI));
+	timeouts->finalRangeMCLKs = this->decodeTimeout(this->readRegister16Bit(FINAL_RANGE_CONFIG_TIMEOUT_MACROP_HI));
 
 	if (enables->preRange) {
 		timeouts->finalRangeMCLKs -= timeouts->preRangeMCLKs;
 	}
 
-	timeouts->finalRangeMicroseconds = timeoutMclksToMicroseconds(timeouts->finalRangeMCLKs, timeouts->finalRangeVCSELPeriodPCLKs);
+	timeouts->finalRangeMicroseconds = this->timeoutMclksToMicroseconds(timeouts->finalRangeMCLKs, timeouts->finalRangeVCSELPeriodPCLKs);
 }
 
 uint16_t VL53L0X::decodeTimeout(uint16_t registerValue) {
