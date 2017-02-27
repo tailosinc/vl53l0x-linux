@@ -7,8 +7,8 @@ endif ()
 # Examples
 set (VL53L0X_EXAMPLES
 	single
-	multiple
-	multipleFast
+	singleMultipleSensors
+	continuousMultipleSensors
 )
 
 foreach (example ${VL53L0X_EXAMPLES})

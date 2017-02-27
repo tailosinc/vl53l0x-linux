@@ -53,6 +53,7 @@ int main() {
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 		sensors[i]->init();
 		sensors[i]->setTimeout(200);
+		// Additionally, set the lowest possible timing budget
 		sensors[i]->setMeasurementTimingBudget(20000);
 		sensors[i]->setAddress(addresses[i]);
 		std::cout << "Sensor " << i << " initialized, real time budget: " << sensors[i]->getMeasurementTimingBudget() << std::endl;
@@ -69,7 +70,6 @@ int main() {
 	uint64_t minDuration = 1000*1000*1000;
 	// Initialize reference time measurement
 	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
 
 	// 1000 readings for every sensor
 	int j = 0;
