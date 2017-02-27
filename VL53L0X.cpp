@@ -872,22 +872,21 @@ uint16_t VL53L0X::decodeTimeout(uint16_t registerValue) {
 
 uint16_t VL53L0X::encodeTimeout(uint16_t timeoutMCLKs) {
 	// format: "(LSByte * 2^MSByte) + 1"
+	if (timeoutMCLKs == 0) {
+		return 0;
+	}
 
 	uint32_t lsByte = 0;
 	uint16_t msByte = 0;
 
-	if (timeoutMCLKs > 0) {
-		lsByte = timeoutMCLKs - 1;
+	lsByte = timeoutMCLKs - 1;
 
-		while ((lsByte & 0xFFFFFF00) > 0) {
-			lsByte >>= 1;
-			msByte++;
-		}
-
-		return (msByte << 8) | (lsByte & 0xFF);
-	} else {
-		return 0;
+	while ((lsByte & 0xFFFFFF00) > 0) {
+		lsByte >>= 1;
+		msByte++;
 	}
+
+	return (msByte << 8) | (lsByte & 0xFF);
 }
 
 uint32_t VL53L0X::timeoutMclksToMicroseconds(uint16_t timeoutPeriodMCLKs, uint8_t vcselPeriodPCLKs) {
