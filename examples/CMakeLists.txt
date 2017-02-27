@@ -8,6 +8,7 @@ endif ()
 set (VL53L0X_EXAMPLES
 	single
 	multiple
+	multipleFast
 )
 
 foreach (example ${VL53L0X_EXAMPLES})
