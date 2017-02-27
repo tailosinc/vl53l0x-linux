@@ -55,20 +55,23 @@ int main() {
 		sensors[i]->setTimeout(200);
 		sensors[i]->setMeasurementTimingBudget(20000);
 		sensors[i]->setAddress(addresses[i]);
-		std::cout << "Sensor " << i << " initialized\n";
+		std::cout << "Sensor " << i << " initialized, real time budget: " << sensors[i]->getMeasurementTimingBudget() << std::endl;
 	}
 
-	// Start continuous measurement
+	// Start continuous back-to-back measurement
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 		sensors[i]->startContinuous();
 	}
 
-	std::chrono::nanoseconds totalDuration(0);
-	std::chrono::nanoseconds maxDuration(0);
-	std::chrono::nanoseconds minDuration(std::chrono::seconds(10));
+	// Durations in nanoseconds
+	uint64_t totalDuration = 0;
+	uint64_t maxDuration = 0;
+	uint64_t minDuration = 1000*1000*1000;
+	// Initialize reference time measurement
 	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-	// 1000 readings for every sensor every half second
+
+	// 1000 readings for every sensor
 	int j = 0;
 	for (; !exitFlag && j < 1000; ++j) {
 		std::cout << "\r" << std::setw(3) << std::setfill('0') << j << " | ";
@@ -81,17 +84,25 @@ int main() {
 				return 1;
 			}
 			if (sensors[i]->timeoutOccurred()) {
-				std::cout << "tout | ";
+				std::cout << "\ntimeout: " << i << std::endl;
 			} else {
 				std::cout << std::setw(4) << distance << " | ";
 			}
 		}
 		std::cout << std::flush;
 
+		// Calculate duration of current iteration
 		std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-		std::chrono::nanoseconds duration = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t2);
+		uint64_t duration = (std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1)).count();
+		// Save current time as reference for next iteration
 		t1 = t2;
+		// Add total measurements duration
 		totalDuration += duration;
+		// Skip comparing first measurement against max and min as it's not a full iteration
+		if (j == 0) {
+			continue;
+		}
+		// Check and save max and min iteration duration
 		if (duration > maxDuration) {
 			maxDuration = duration;
 		}
@@ -100,11 +111,11 @@ int main() {
 		}
 	}
 
-	unsigned int averageDuration = totalDuration.count()/j;
-
-	std::cout << "\nMax duration: " << maxDuration.count() << std::endl;
-	std::cout << "Min duration: " << minDuration.count() << std::endl;
-	std::cout << "Avg duration: " << averageDuration << std::endl;
+	// Print duration data
+	std::cout << "\nMax duration: " << maxDuration << "ns" << std::endl;
+	std::cout << "Min duration: " << minDuration << "ns" << std::endl;
+	std::cout << "Avg duration: " << totalDuration/(j+1) << "ns" << std::endl;
+	std::cout << "Avg frequency: " << 1000000000/(totalDuration/(j+1)) << "Hz" << std::endl;
 
 	// Clean-up: delete objects, set GPIO/XSHUT pins to low.
 	for (int i = 0; i < SENSOR_COUNT; ++i) {
