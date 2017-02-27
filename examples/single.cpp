@@ -25,7 +25,7 @@ int main() {
 	try {
 		sensor.init();
 		sensor.setTimeout(500);
-	} catch (std::string err) {
+	} catch (std::string & err) {
 		std::cerr << err;
 		return 1;
 	}

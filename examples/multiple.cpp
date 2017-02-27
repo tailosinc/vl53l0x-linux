@@ -67,7 +67,7 @@ int main() {
 			uint16_t distance;
 			try {
 				distance = sensors[i]->readRangeSingleMillimeters();
-			} catch (std::string err) {
+			} catch (std::string & err) {
 				std::cerr << err;
 				return 1;
 			}
