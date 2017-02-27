@@ -1,6 +1,7 @@
 # VL53L0X library for Linux
-Version: 0.1
-Release date: 25.02.2017
+Version: 0.1.1
+Release date: 27.02.2017
+Changelog: see git log
 
 ---
 
@@ -16,7 +17,8 @@ Additionally it provides support for managing multiple sensors connected to the 
 * Multiple sensors support added
 * Hardware standby (XSHUT) management support added (part of multiple sensors support)
 * Single sensor: tested and working (`examples/single`)
-* Multiple sensors: tested and working (`examples/multiple`)
+* Multiple sensors: tested and working (`examples/singleMultipleSensors`)
+* Continuous measurement: tested and working (`examples/continuousMultipleSensors`)
 * Code style consistency improved
 * Documentation moved to header (why would you want them with source?)
 * Other minor improvements
@@ -32,6 +34,7 @@ TODO:
 * Odroid C2 - main target board
 * Odroid C1/XU3/XU4 - as supported by linked WiringPi fork
 * Raspberry Pi (any) - as supported by base WiringPi library
+* Others - possible but unsure
 
 ---
 
@@ -43,6 +46,10 @@ TODO:
 ## Usage
 ### Hardware
 A [VL53L0X carrier](https://www.pololu.com/product/2490) can be purchased from Pololu's website.  Before continuing, careful reading of the [product page](https://www.pololu.com/product/2490) as well as the VL53L0X datasheet is recommended.
+
+Important notes on hardware:
+* XSHUT is connected via pull-up resistor to VIN, therefore the sensor can be powered from GPIO even if VIN is disconnected
+* Even putting the sensor to hardware standby (XSHUT low, VIN connected) will reset its address (see [Multiple sensors secton](#multiple-sensors) on why that's important)
 
 #### Connections
 ##### Odroid C2
@@ -99,7 +106,8 @@ CMake will _try_ to force gcc/g++-6 usage but will silently fallback to default 
 	* Check for timeout (like in single ranging)
 	* End with `.stopContinuous()`
 
-See `examples/single.cpp` for reference and [Multiple sensors section](#multiple-sensors) for instructions how to use multiple sensors at once.
+See `examples/single.cpp` for reference on single range reading and [Multiple sensors section](#multiple-sensors) for instructions how to use multiple sensors at once.
+For reference on continuous ranging see `examples/continuousMultipleSensors.cpp`, combining this approach with using multiple sensors at once.
 
 #### Building your code using the library
 Add `VL53L0X.h` to include path, link against built `libvl53l0x.so`.
@@ -126,7 +134,7 @@ That translates to following steps within your code:
 * initialize sensors one-by-one and set different address for each one before initializing the next one
 
 After that, reading range values from sensors is just like with single one.
-See `examples/multiple.cpp` for reference.
+See `examples/singleMultipleSensors.cpp` and `examples/continuousMultipleSensors.cpp` for reference.
 
 ## Examples
 Build examples with:
@@ -138,7 +146,8 @@ make examples
 and run with
 ```
 ./examples/single
-./examples/multiple
+./examples/singleMultipleSensors
+./examples/continuousMultipleSensors
 ```
 _TODO: more examples, add explanations here_
 
