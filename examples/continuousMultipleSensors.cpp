@@ -1,18 +1,16 @@
 #include <VL53L0X.h>
-#include <wiringPi.h>
 
 #include <chrono>
 #include <csignal>
 #include <iomanip>
 #include <iostream>
 #include <unistd.h>
+#include <wiringPi.h>
 
 volatile sig_atomic_t exitFlag = 0;
 void sigintHandler(int) {
 	exitFlag = 1;
 }
-
-// chrt -r 1 ./yourprogram
 
 int main() {
 	// Configuration constants
@@ -71,10 +69,9 @@ int main() {
 	// Initialize reference time measurement
 	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-	// 1000 readings for every sensor
 	int j = 0;
-	for (; !exitFlag && j < 1000; ++j) {
-		std::cout << "\r" << std::setw(3) << std::setfill('0') << j << " | ";
+	for (; !exitFlag && j < 100000; ++j) {
+		std::cout << "\rReading" << std::setw(4) << std::setfill('0') << j << " | ";
 		for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 			uint16_t distance;
 			try {
@@ -83,6 +80,7 @@ int main() {
 				std::cerr << err;
 				return 1;
 			}
+
 			if (sensors[i]->timeoutOccurred()) {
 				std::cout << "\ntimeout: " << i << std::endl;
 			} else {

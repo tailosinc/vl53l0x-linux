@@ -1,9 +1,11 @@
 #include <VL53L0X.h>
-#include <wiringPi.h>
 
+#include <chrono>
 #include <csignal>
+#include <iomanip>
 #include <iostream>
 #include <unistd.h>
+#include <wiringPi.h>
 
 volatile sig_atomic_t exitFlag = 0;
 void sigintHandler(int) {
@@ -59,10 +61,16 @@ int main() {
 		std::cout << "Sensor " << i << " initialized\n";
 	}
 
-	// 1000 readings for every sensor every half second
-	for (int j = 0; !exitFlag && j < 1000; ++j) {
-		usleep(500*1000);
-		std::cout << "Reading " << j << ":" << std::endl;
+	// Durations in nanoseconds
+	uint64_t totalDuration = 0;
+	uint64_t maxDuration = 0;
+	uint64_t minDuration = 1000*1000*1000;
+	// Initialize reference time measurement
+	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+
+	int j = 0;
+	for (; !exitFlag && j < 100000; ++j) {
+		std::cout << "\rReading" << std::setw(4) << std::setfill('0') << j << " | ";
 		for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 			uint16_t distance;
 			try {
@@ -71,14 +79,40 @@ int main() {
 				std::cerr << err;
 				return 1;
 			}
-			std::cout << "\tSensor" << i << ": ";
+
 			if (sensors[i]->timeoutOccurred()) {
-				std::cout << "TIMEOUT\n";
+				std::cout << "\ntimeout: " << i << std::endl;
 			} else {
-				std::cout << distance << std::endl;
+				std::cout << std::setw(4) << distance << " | ";
 			}
 		}
+		std::cout << std::flush;
+
+		// Calculate duration of current iteration
+		std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+		uint64_t duration = (std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1)).count();
+		// Save current time as reference for next iteration
+		t1 = t2;
+		// Add total measurements duration
+		totalDuration += duration;
+		// Skip comparing first measurement against max and min as it's not a full iteration
+		if (j == 0) {
+			continue;
+		}
+		// Check and save max and min iteration duration
+		if (duration > maxDuration) {
+			maxDuration = duration;
+		}
+		if (duration < minDuration) {
+			minDuration = duration;
+		}
 	}
+
+	// Print duration data
+	std::cout << "\nMax duration: " << maxDuration << "ns" << std::endl;
+	std::cout << "Min duration: " << minDuration << "ns" << std::endl;
+	std::cout << "Avg duration: " << totalDuration/(j+1) << "ns" << std::endl;
+	std::cout << "Avg frequency: " << 1000000000/(totalDuration/(j+1)) << "Hz" << std::endl;
 
 	// Clean-up: delete objects, set GPIO/XSHUT pins to low.
 	for (int i = 0; i < SENSOR_COUNT; ++i) {
