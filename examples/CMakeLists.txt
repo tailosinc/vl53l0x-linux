@@ -7,6 +7,7 @@ endif ()
 # Examples
 set (VL53L0X_EXAMPLES
 	single
+	singleMinimal
 	singleMultipleSensors
 	continuousMultipleSensors
 )
