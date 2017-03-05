@@ -6,13 +6,7 @@
 #ifndef _VL53L0X_H
 #define _VL53L0X_H
 
-#include <cerrno>
-#include <cstring>
-#include <ctime>
-#include <string>
-#include <unistd.h>
-#include <wiringPi.h>
-#include <wiringPiI2C.h>
+#include <cstdint>
 
 //#define VL53L0X_ADDRESS_DEFAULT 0b0101001
 #define VL53L0X_ADDRESS_DEFAULT 0x29

@@ -1,5 +1,20 @@
 #include "VL53L0X.h"
 
+// errno
+#include <cerrno>
+// strerror()
+#include <cstring>
+// struct timespec, clock_gettime()
+#include <ctime>
+// std::string etc
+#include <string>
+// close()
+#include <unistd.h>
+// GPIO: pinMode(), digitalWrite()
+#include <wiringPi.h>
+// I2C: wiringPiI2CWriteReg() etc
+#include <wiringPiI2C.h>
+
 /*** Defines ***/
 
 // Record the current time to check an upcoming timeout against
@@ -749,6 +764,7 @@ uint16_t VL53L0X::readRangeContinuousMillimeters() {
 			this->didTimeout = true;
 			return 65535;
 		}
+		usleep(1);
 	}
 
 	// assumptions: Linearity Corrective Gain is 1000 (default);
@@ -782,6 +798,7 @@ uint16_t VL53L0X::readRangeSingleMillimeters() {
 			this->didTimeout = true;
 			return 65535;
 		}
+		usleep(1);
 	}
 
 	return readRangeContinuousMillimeters();
@@ -816,6 +833,7 @@ bool VL53L0X::getSPADInfo(uint8_t* count, bool* typeIsAperture) {
 		if (checkTimeoutExpired()) {
 			return false;
 		}
+		usleep(1);
 	}
 	this->writeRegister(0x83, 0x01);
 	tmp = this->readRegister(0x92);
@@ -910,6 +928,7 @@ bool VL53L0X::performSingleRefCalibration(uint8_t vhvInitByte) {
 		if (checkTimeoutExpired()) {
 			return false;
 		}
+		usleep(1);
 	}
 
 	this->writeRegister(SYSTEM_INTERRUPT_CLEAR, 0x01);
