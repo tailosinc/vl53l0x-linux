@@ -1,6 +1,6 @@
 # VL53L0X library for Linux
-Version: 0.1.1
-Release date: 27.02.2017
+Version: 0.1.3<br>
+Release date: 11.03.2017<br>
 Changelog: see git log
 
 ---
@@ -78,22 +78,49 @@ Of course, you can also use `I2CB_SDA/SCL` and any other `GPIOX` and `Ground` pi
 ```
 
 ### Software
-#### Building the library
-```
-cd build
-cmake ..
+#### Building
+```sh
+cd build/release
+cmake ../..
 make
 ```
 
-When building you can specify location of (already built) WiringPi library.<br>
+Notes:
+
+If WiringPi library is not installed system wise, you can specify its location on build-time.<br>
 It may be specified via ENV (`WIRINGPI_DIR="/path/to/wiringpi/dir" cmake`) or via cmake's definition (`cmake -D WIRINGPI_DIR="/path/to/wiringpi/dir"`).<br>
-By default, it will look for `wiringPi` directory in the same directory the main VL53L0X directory resides (`../wiringPi`).<br>
-_Note: wiringPi may become a git submodule in the future_
 
 CMake will _try_ to force gcc/g++-6 usage but will silently fallback to default system compiler if these are not found.
 
+#### Installation
+Note: you can include and link this library in userspace, see [relevant section](#building-your-code-using-the-library)
+
+Note2: there are (or will be) pre-built packages for Debian (and derivatives like Ubuntu) and Archlinux in Github's 'release' section. You can download proper package from there and skip to installation via package manager (last step in instructions below).
+
+##### Debian
+```sh
+cd build/release
+cmake ../..
+make
+cpack -G DEB
+sudo dpkg -i vl53l0x-linux-*.deb
+```
+##### Archlinux
+```sh
+cd build/archlinux
+makepkg
+sudo pacman -U vl53l0x-linux-*.pkg.*
+```
+##### Manual (others)
+```sh
+cd build/release
+cmake ../..
+make
+sudo make install
+```
+
 #### Using the library
-* Include `VL53L0X.h`
+* Include `<VL53L0X.h>`
 * Create instance of `VL53L0X` class
 * Call `.init()`
 * (Optional) set timing budget etc
@@ -106,14 +133,18 @@ CMake will _try_ to force gcc/g++-6 usage but will silently fallback to default 
 	* Check for timeout (like in single ranging)
 	* End with `.stopContinuous()`
 
-See `examples/single.cpp` for reference on single range reading and [Multiple sensors section](#multiple-sensors) for instructions how to use multiple sensors at once.
-For reference on continuous ranging see `examples/continuousMultipleSensors.cpp`, combining this approach with using multiple sensors at once.
+See [examples section](#examples) for reference and [Multiple sensors section](#multiple-sensors) for instructions how to use multiple sensors at once.
 
 #### Building your code using the library
-Add `VL53L0X.h` to include path, link against built `libvl53l0x.so`.
-
-For example, compilation using g++:
+For system-wise installed library:
+Link against `vl53l0x`, e.g.:
+```sh
+g++ -lvl53l0x your_code.cpp
 ```
+
+For userspace:
+Add `VL53L0X.h` to include path, link against built `libvl53l0x.so`, e.g.:
+```sh
 g++ -I/path/to/VL53L0X.h -l/path/to/libvl53l0x.so your_code.cpp
 ```
 
@@ -138,18 +169,31 @@ See `examples/singleMultipleSensors.cpp` and `examples/continuousMultipleSensors
 
 ## Examples
 Build examples with:
-```
-cd build
-cmake ..
+```sh
+cd build/release
+cmake ../..
 make examples
 ```
 and run with
-```
+```sh
 ./examples/single
+./examples/singleMinimal
 ./examples/singleMultipleSensors
 ./examples/continuousMultipleSensors
 ```
-_TODO: more examples, add explanations here_
+
+### Single ranging mode, single sensor
+`examples/singleMinimal.cpp` shows the minimal working example.
+
+`examples/single.cpp` shows how to use a single sensor in single ranging mode in more detail and with proper commentary on what's going on.
+
+### Single ranging mode, multiple sensors
+`examples/singleMultipleSensors.cpp` shows how to use multiple sensors at once in single ranging mode.
+
+### Continuous ranging mode, multiple sensors
+`examples/continuousMultipleSensors.cpp` shows how to use continuous ranging mode (with back-to-back measurements) while using multiple sensors at once.
+
+Note: in my experiments on Odroid C2 board with Linux-RT kernel, I've managed to run 6 sensors at once with stable frequency of more than 50Hz!
 
 ---
 
