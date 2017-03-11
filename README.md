@@ -3,16 +3,45 @@ Version: 0.1.3<br>
 Release date: 11.03.2017<br>
 Changelog: see git log
 
----
-
 ## Summary
 This is a library for Linux that helps interface with ST's [VL53L0X time-of-flight distance sensor](https://www.pololu.com/product/2490). The library makes it simple to configure the sensor and read range data from it via I&sup2;C.
 
 Additionally it provides support for managing multiple sensors connected to the same bus by managing hardware standby of individual sensors via their XSHUT pins, see [multiple sensors section](#multiple-sensors)
 
+## Table of Contents
+<!-- MarkdownTOC depth=0 autolink="true" bracket="round" -->
+
+- [Development status](#development-status)
+- [Supported platforms](#supported-platforms)
+- [Used libraries/dependencies](#used-librariesdependencies)
+- [Usage](#usage)
+	- [Hardware](#hardware)
+		- [Connections](#connections)
+			- [Odroid C2](#odroid-c2)
+			- [Raspberry Pi](#raspberry-pi)
+	- [Software](#software)
+		- [Building](#building)
+		- [Installation](#installation)
+			- [Debian](#debian)
+			- [Archlinux](#archlinux)
+			- [Manual \(others\)](#manual-others)
+		- [Using the library](#using-the-library)
+		- [Building your code using the library](#building-your-code-using-the-library)
+	- [Multiple sensors](#multiple-sensors)
+- [Examples](#examples)
+	- [Single ranging mode, single sensor](#single-ranging-mode-single-sensor)
+	- [Single ranging mode, multiple sensors](#single-ranging-mode-multiple-sensors)
+	- [Continuous ranging mode, multiple sensors](#continuous-ranging-mode-multiple-sensors)
+- [ST's VL53L0X API and this library](#sts-vl53l0x-api-and-this-library)
+- [Library reference](#library-reference)
+- [Special thanks](#special-thanks)
+
+<!-- /MarkdownTOC -->
+
 ---
 
 ## Development status
+* __WORKING__
 * `Wire.h` replaced with `WiringPi`
 * Multiple sensors support added
 * Hardware standby (XSHUT) management support added (part of multiple sensors support)
