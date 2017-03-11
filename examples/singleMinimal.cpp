@@ -2,7 +2,6 @@
 #include <VL53L0X.h>
 
 int main() {
-	// Create and initialize the sensor
 	VL53L0X sensor;
 	sensor.init();
 	sensor.setTimeout(200);
