@@ -8,14 +8,16 @@ set (CPACK_DEBIAN_PACKAGE_DEPENDS "wiringpi-odroid (>=2.42)")
 set (CPACK_PACKAGE_CONTACT "MJBogusz <mjbogusz.find.me.on.github@not.a.valid.email.address.com>")
 set (CPACK_DEBIAN_PACKAGE_SECTION "libraries")
 set (CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-# set (CPACK_PACKAGE_DESCRIPTION_SUMMARY
-#   ""
-# )
 set (CPACK_PACKAGE_DESCRIPTION
-  "VL53L0X ToF sensor library"
+  "VL53L0X ToF sensor library, aimed at Single Board Computers like Raspberry Pi and Odroid boards."
 )
+set (CPACK_PACKAGE_DESCRIPTION_SUMMARY ${CPACK_PACKAGE_DESCRIPTION})
 set (CPACK_SOURCE_STRIP_FILES true)
 set (CPACK_STRIP_FILES true)
+set (CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+  "${CMAKE_CURRENT_SOURCE_DIR}/build/debian/postinst;" +
+  "${CMAKE_CURRENT_SOURCE_DIR}/build/debian/postrm;"
+)
 set (CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 
 # Architecture auto-detection. Idea from http://stackoverflow.com/questions/11944060/how-to-detect-target-architecture-using-cmake
