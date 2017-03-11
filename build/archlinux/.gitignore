@@ -1,0 +1,4 @@
+*
+!.gitignore
+!PKGBUILD
+!vl53l0x-linux.install
