@@ -48,6 +48,18 @@ endif ()
 target_include_directories (vl53l0x PUBLIC ${WIRINGPI_INCLUDE_DIR})
 target_link_libraries (vl53l0x LINK_PUBLIC ${WIRINGPI_LIBRARIES})
 
+### Install target
+set (CMAKE_INSTALL_PREFIX /usr/)
+install(TARGETS vl53l0x
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
+)
+install(FILES
+	"VL53L0X.h"
+	DESTINATION include
+)
+
 ### Examples
 add_subdirectory (examples)
 
