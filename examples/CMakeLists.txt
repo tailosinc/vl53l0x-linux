@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8.8 FATAL_ERROR)
 
-if (NOT WIRINGPI_INCLUDE_DIR OR NOT WIRINGPI_LIBRARIES)
+if (NOT TARGET vl53l0x)
 	message (FATAL_ERROR "This CMakeLists is not intended for standalone usage. Use one from main directory instead.")
 endif ()
 
@@ -14,8 +14,25 @@ set (VL53L0X_EXAMPLES
 
 foreach (example ${VL53L0X_EXAMPLES})
 	add_executable (${example} EXCLUDE_FROM_ALL ${example}.cpp)
-	target_include_directories (${example} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../ ${WIRINGPI_INCLUDE_DIR})
-	target_link_libraries (${example} LINK_PUBLIC vl53l0x ${WIRINGPI_LIBRARIES})
+	if (TARGET wiringPi)
+		target_include_directories (${example} PUBLIC
+			${CMAKE_CURRENT_SOURCE_DIR}/../
+			wiringPi
+		)
+		target_link_libraries (${example} LINK_PUBLIC
+			vl53l0x
+			wiringPi
+		)
+	else ()
+		target_include_directories (${example} PUBLIC
+			${CMAKE_CURRENT_SOURCE_DIR}/../
+			${wiringPi_INCLUDE_DIR}
+		)
+		target_link_libraries (${example} LINK_PUBLIC
+			vl53l0x
+			${wiringPi_LIBRARIES}
+		)
+	endif ()
 endforeach (example)
 
 # Examples make target (`make examples` to build)

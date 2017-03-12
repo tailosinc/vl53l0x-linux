@@ -1,6 +1,6 @@
 # Maintainer: MJBogusz <mjbogusz.find.me.on.github@not.a.valid.email.address.com>
 pkgname=vl53l0x-linux
-pkgver=0.1.3
+pkgver=0.1.4
 pkgrel=1
 pkgdesc="VL53L0X ToF sensor library, aimed at Single Board Computers like Raspberry Pi and Odroid boards."
 arch=('i686' 'x86_64' 'armv7h' 'aarch64')

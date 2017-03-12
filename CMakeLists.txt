@@ -18,7 +18,7 @@ set (VL53L0X_SOURCE_FILES
 
 set (LIB_VERSION_MAJOR 0)
 set (LIB_VERSION_MINOR 1)
-set (LIB_VERSION_PATCH 3)
+set (LIB_VERSION_PATCH 4)
 set (LIB_VERSION ${LIB_VERSION_MAJOR}.${LIB_VERSION_MINOR}.${LIB_VERSION_PATCH})
 
 # Set up target
@@ -33,31 +33,35 @@ endif ()
 if (DEFINED WIRINGPI_DIR)
 	message (STATUS "Using provided WiringPi directory: ${WIRINGPI_DIR}")
 	# Include directories are relative to source dir
-	set (WIRINGPI_INCLUDE_DIR "${WIRINGPI_DIR}/wiringPi")
+	set (wiringPi_INCLUDE_DIR "${WIRINGPI_DIR}/wiringPi")
 	# Linking directories are relative to build dir
-	set (WIRINGPI_LIBRARIES "${WIRINGPI_DIR}/build/wiringPi/libwiringPi.so.2")
+	set (wiringPi_LIBRARIES "${WIRINGPI_DIR}/build/wiringPi/libwiringPi.so.2")
+
+	target_include_directories (vl53l0x PUBLIC ${wiringPi_INCLUDE_DIR})
+	target_link_libraries (vl53l0x LINK_PUBLIC ${wiringPi_LIBRARIES})
 else ()
 	message (STATUS "Using system WiringPi library")
-	include (cmake_modules/FindwiringPi.cmake)
-	if (NOT WIRINGPI_FOUND)
-		message (FATAL_ERROR "WiringPi library not found. Install it or provide via $WIRINGPI_DIR.")
-	endif ()
-endif ()
+	find_package (wiringPi REQUIRED)
 
-# Add WiringPi dependency
-target_include_directories (vl53l0x PUBLIC ${WIRINGPI_INCLUDE_DIR})
-target_link_libraries (vl53l0x LINK_PUBLIC ${WIRINGPI_LIBRARIES})
+	# Add WiringPi dependency
+	# target_include_directories (vl53l0x PUBLIC wiringPi)
+	target_link_libraries (vl53l0x LINK_PUBLIC wiringPi)
+endif ()
 
 ### Install target
 set (CMAKE_INSTALL_PREFIX /usr/)
-install(TARGETS vl53l0x
+install (TARGETS vl53l0x
+	EXPORT vl53l0xConfig
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib
+	INCLUDES DESTINATION include
 )
-install(FILES
-	"VL53L0X.h"
+install (FILES "VL53L0X.h"
 	DESTINATION include
+)
+install (EXPORT vl53l0xConfig
+  DESTINATION lib/cmake/vl53l0x
 )
 
 ### Examples
