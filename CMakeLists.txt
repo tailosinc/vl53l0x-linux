@@ -83,6 +83,11 @@ configure_file (cmake_modules/vl53l0xConfig.cmake
 install (EXPORT vl53l0xTargets
   DESTINATION lib/cmake/vl53l0x
 )
+install (FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/vl53l0x/vl53l0xConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/vl53l0x/vl53l0xConfigVersion.cmake"
+  DESTINATION lib/cmake/vl53l0x
+)
 
 ### Examples
 add_subdirectory (examples)
