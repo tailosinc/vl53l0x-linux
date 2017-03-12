@@ -1,6 +1,6 @@
 # VL53L0X library for Linux
-Version: 0.1.3<br>
-Release date: 11.03.2017<br>
+Version: 0.1.4<br>
+Release date: 12.03.2017<br>
 Changelog: see git log
 
 ## Summary
@@ -27,6 +27,9 @@ Additionally it provides support for managing multiple sensors connected to the 
 			- [Manual \(others\)](#manual-others)
 		- [Using the library](#using-the-library)
 		- [Building your code using the library](#building-your-code-using-the-library)
+			- [Using system-installed library and plain GCC](#using-system-installed-library-and-plain-gcc)
+			- [Using system-installed library and CMake](#using-system-installed-library-and-cmake)
+			- [Using library from userspace](#using-library-from-userspace)
 	- [Multiple sensors](#multiple-sensors)
 - [Examples](#examples)
 	- [Single ranging mode, single sensor](#single-ranging-mode-single-sensor)
@@ -165,13 +168,18 @@ sudo make install
 See [examples section](#examples) for reference and [Multiple sensors section](#multiple-sensors) for instructions how to use multiple sensors at once.
 
 #### Building your code using the library
-For system-wise installed library:
+##### Using system-installed library and plain GCC
 Link against `vl53l0x`, e.g.:
 ```sh
 g++ -lvl53l0x your_code.cpp
 ```
+##### Using system-installed library and CMake
+```cmake
+find_package (vl53l0x REQUIRED)
+target_link_libraries (your_target LINK_PUBLIC vl53l0x)
+```
 
-For userspace:
+##### Using library from userspace
 Add `VL53L0X.h` to include path, link against built `libvl53l0x.so`, e.g.:
 ```sh
 g++ -I/path/to/VL53L0X.h -l/path/to/libvl53l0x.so your_code.cpp
