@@ -1,19 +1,13 @@
-#include "VL53L0X.h"
+#include "VL53L0X.hpp"
 
-// errno
 #include <cerrno>
 // strerror()
 #include <cstring>
 // struct timespec, clock_gettime()
 #include <ctime>
-// std::string etc
 #include <string>
-// close()
 #include <unistd.h>
-// GPIO: pinMode(), digitalWrite()
-#include <wiringPi.h>
-// I2C: wiringPiI2CWriteReg() etc
-#include <wiringPiI2C.h>
+#include "I2Cdev.hpp"
 
 /*** Defines ***/
 
@@ -46,12 +40,10 @@ uint64_t milliseconds() {
 VL53L0X::VL53L0X(const int16_t xshutGPIOPin, const uint8_t address) {
 	this->xshutGPIOPin = xshutGPIOPin;
 	this->address = address;
-	this->i2cFileDescriptor = -1;
 
 	this->ioTimeout = 0;
 	this->didTimeout = false;
 
-	this->lastStatus = 0;
 	this->measurementTimingBudgetMicroseconds = 33000;
 	this->stopVariable = 0;
 	this->timeoutStartMilliseconds = milliseconds();
@@ -62,17 +54,31 @@ VL53L0X::VL53L0X(const int16_t xshutGPIOPin, const uint8_t address) {
 bool VL53L0X::init(bool ioMode2v8) {
 	// Set XSHUT pin mode (if pin set)
 	if (this->xshutGPIOPin >= 0) {
-		pinMode(this->xshutGPIOPin, OUTPUT);
+		std::string gpioDirectionFilename = std::string("/sys/class/gpio/gpio") + std::to_string(this->xshutGPIOPin) + std::string("/value");
+		this->gpioFilename = std::string("/sys/class/gpio/gpio") + std::to_string(this->xshutGPIOPin) + std::string("/value");
+
+		std::lock_guard<std::mutex> guard(this->fileAccessMutex);
+
+		std::ofstream file;
+		file.open("/sys/class/gpio/export", std::ofstream::out);
+		if (!file.is_open() || !file.good()) {
+			file.close();
+			throw(std::string("Failed opening file: /sys/class/gpio/export"));
+		}
+		file << this->xshutGPIOPin;
+		file.close();
+
+		file.open(gpioDirectionFilename.c_str(), std::ofstream::out);
+		if (!file.is_open() || !file.good()) {
+			file.close();
+			throw(std::string("Failed opening file: ") + gpioDirectionFilename);
+		}
+		file << "out";
+		file.close();
 	}
 
 	// Enable the sensor
 	this->powerOn();
-
-	// Initialize I2C communication
-	this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
-	if (this->i2cFileDescriptor == -1) {
-		throw(std::string("Error initializing I2C communication: ") + std::string(strerror(errno)));
-	}
 
 	// VL53L0X_DataInit() begin
 
@@ -296,7 +302,17 @@ bool VL53L0X::init(bool ioMode2v8) {
 
 void VL53L0X::powerOn() {
 	if (this->xshutGPIOPin >= 0) {
-		digitalWrite(this->xshutGPIOPin, HIGH);
+		std::lock_guard<std::mutex> guard(this->fileAccessMutex);
+		std::ofstream file;
+
+		file.open(this->gpioFilename.c_str(), std::ofstream::out);
+		if (!file.is_open() || !file.good()) {
+			file.close();
+			throw(std::string("Failed opening file: ") + this->gpioFilename);
+		}
+		file << "1";
+		file.close();
+
 		// t_boot is 1.2ms max, wait 2ms just to be sure
 		usleep(2000);
 	}
@@ -304,14 +320,22 @@ void VL53L0X::powerOn() {
 
 void VL53L0X::powerOff() {
 	if (this->xshutGPIOPin >= 0) {
-		digitalWrite(this->xshutGPIOPin, LOW);
+		std::lock_guard<std::mutex> guard(this->fileAccessMutex);
+		std::ofstream file;
+
+		file.open(this->gpioFilename.c_str(), std::ofstream::out);
+		if (!file.is_open() || !file.good()) {
+			file.close();
+			throw(std::string("Failed opening file: ") + this->gpioFilename);
+		}
+		file << "0";
+		file.close();
 	}
 }
 
 void VL53L0X::writeRegister(uint8_t reg, uint8_t value) {
-	int p = wiringPiI2CWriteReg8(this->i2cFileDescriptor, reg, value);
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
+	bool p = I2Cdev::writeByte(this->address, reg, value);
+	if (!p) {
 		throw(std::string("Error writing byte to register: ") + std::string(strerror(errno)));
 	}
 }
@@ -320,99 +344,83 @@ void VL53L0X::writeRegister16Bit(uint8_t reg, uint16_t value) {
 	// Reverse endianness
 	uint16_t valueFixed = ((value & 0xFF) << 8) + ((value & 0xFF00) >> 8);
 
-	int p = wiringPiI2CWriteReg16(this->i2cFileDescriptor, reg, valueFixed);
-
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
+	bool p = I2Cdev::writeWord(this->address, reg, valueFixed);
+	if (!p) {
 		throw(std::string("Error writing word to register: ") + std::string(strerror(errno)));
 	}
 }
 
 void VL53L0X::writeRegister32Bit(uint8_t reg, uint32_t value) {
 	// Split 32-bit word into MS ... LS bytes
-	int* buffer = new int[4]();
-	buffer[0] = (value >> 24) & 0xFF;
-	buffer[1] = (value >> 16) & 0xFF;
-	buffer[2] = (value >> 8) & 0xFF;
-	buffer[3] = value & 0xFF;
+	uint8_t data[4];
+	data[0] = (value >> 24) & 0xFF;
+	data[1] = (value >> 16) & 0xFF;
+	data[2] = (value >> 8) & 0xFF;
+	data[3] = value & 0xFF;
 
-	int p = wiringPiI2CWriteRegBlock(this->i2cFileDescriptor, reg, buffer, 4);
-	delete [] buffer;
-
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
+	bool p = I2Cdev::writeBytes(this->address, reg, 4, data);
+	if (!p) {
 		throw(std::string("Error writing dword to register"));
 	}
 }
 
 void VL53L0X::writeRegisterMultiple(uint8_t reg, const uint8_t* source, uint8_t count) {
-	int* buffer = new int[count]();
-	for (int i = 0; i < count; ++i) {
-		buffer[i] = source[i];
+	uint8_t data[4];
+	for (uint8_t i = 0; i < 4; ++i) {
+		data[i] = source[i];
 	}
-
-	int p = wiringPiI2CWriteRegBlock(this->i2cFileDescriptor, reg, buffer, count);
-	delete [] buffer;
-
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
+	bool p = I2Cdev::writeBytes(this->address, reg, count, data);
+	if (!p) {
 		throw(std::string("Error writing block to register"));
 	}
 }
 
 uint8_t VL53L0X::readRegister(uint8_t reg) {
-	int p = wiringPiI2CReadReg8(this->i2cFileDescriptor, reg);
-	lastStatus = (p == -1 ? errno : 0);
-
+	uint8_t data;
+	int8_t p = I2Cdev::readByte(this->address, reg, &data);
 	if (p == -1) {
 		throw(std::string("Error reading byte from register"));
 	}
-	return p & 0xFF;
+	return data;
 }
 
 uint16_t VL53L0X::readRegister16Bit(uint8_t reg) {
-	int p = wiringPiI2CReadReg16(this->i2cFileDescriptor, reg);
+	uint8_t data[2];
+	int8_t p = I2Cdev::readBytes(this->address, reg, 2, data);
 
-	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
 		throw(std::string("Error reading word from register"));
 	}
 
-	// Reverse endianness
-	return ((p & 0xFF) << 8) + ((p & 0xFF00) >> 8);
+	return ((int16_t)(data[0]) << 8) + (int16_t)(data[1]);
 }
 
 uint32_t VL53L0X::readRegister32Bit(uint8_t reg) {
-	int* buffer = new int[4]();
-	int p = wiringPiI2CReadRegBlock(this->i2cFileDescriptor, reg, buffer, 4);
+	uint8_t data[4];
+	int8_t p = I2Cdev::readBytes(this->address, reg, 4, data);
 
-	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
-		delete [] buffer;
 		throw(std::string("Error reading dword from register"));
 	}
 
-	uint32_t value = (uint32_t)buffer[0] << 24;
-	value += (uint32_t)buffer[1]<<16;
-	value += (uint32_t)buffer[2]<<8;
-	value += (uint32_t)buffer[3];
+	uint32_t value = (uint32_t)data[0] << 24;
+	value += (uint32_t)data[1]<<16;
+	value += (uint32_t)data[2]<<8;
+	value += (uint32_t)data[3];
 
-	delete [] buffer;
 	return value;
 }
 
 void VL53L0X::readRegisterMultiple(uint8_t reg, uint8_t* destination, uint8_t count) {
-	int* buffer = new int[count]();
-	int p = wiringPiI2CReadRegBlock(this->i2cFileDescriptor, reg, buffer, count);
+	uint8_t data[count];
+	int8_t p = I2Cdev::readBytes(this->address, reg, count, data);
 
-	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
-		delete [] buffer;
 		throw(std::string("Error reading block from register"));
 	}
 
-	for (int i = 0; i < count; ++i) {
-		destination[i] = buffer[i] & 0xFF;
+	for (uint8_t i = 0; i < count; ++i) {
+		destination[i] = data[i];
 	}
 }
 
@@ -421,15 +429,8 @@ void VL53L0X::setAddress(uint8_t newAddress) {
 	this->powerOn();
 	// Set new I2C address
 	this->writeRegister(I2C_SLAVE_DEVICE_ADDRESS, newAddress & 0x7F);
-	// Close I2C communication on old address
-	close(this->address);
 	// Save new address
 	this->address = newAddress;
-	// Reinitialize I2C communication on new address
-	this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
-	if (this->i2cFileDescriptor == -1) {
-		throw(std::string("Error initializing I2C communication on new address: ") + std::string(strerror(errno)));
-	}
 }
 
 bool VL53L0X::setSignalRateLimit(float limitMCPS) {
@@ -461,8 +462,8 @@ bool VL53L0X::setMeasurementTimingBudget(uint32_t budgetMicroseconds) {
 		return false;
 	}
 
-	VL53L0X::SequenceStepEnables enables;
-	VL53L0X::SequenceStepTimeouts timeouts;
+	VL53L0XSequenceStepEnables enables;
+	VL53L0XSequenceStepTimeouts timeouts;
 	this->getSequenceStepEnables(&enables);
 	this->getSequenceStepTimeouts(&enables, &timeouts);
 
@@ -529,8 +530,8 @@ uint32_t VL53L0X::getMeasurementTimingBudget() {
 	uint16_t const PRE_RANGE_OVERHEAD = 660;
 	uint16_t const FINAL_RANGE_OVERHEAD = 550;
 
-	VL53L0X::SequenceStepEnables enables;
-	VL53L0X::SequenceStepTimeouts timeouts;
+	VL53L0XSequenceStepEnables enables;
+	VL53L0XSequenceStepTimeouts timeouts;
 	this->getSequenceStepEnables(&enables);
 	this->getSequenceStepTimeouts(&enables, &timeouts);
 
@@ -556,11 +557,11 @@ uint32_t VL53L0X::getMeasurementTimingBudget() {
 	return budgetMicroseconds;
 }
 
-bool VL53L0X::setVcselPulsePeriod(vcselPeriodType type, uint8_t periodPCLKs) {
+bool VL53L0X::setVcselPulsePeriod(vl53l0xVcselPeriodType type, uint8_t periodPCLKs) {
 	uint8_t vcselPeriodValue = encodeVcselPeriod(periodPCLKs);
 
-	VL53L0X::SequenceStepEnables enables;
-	VL53L0X::SequenceStepTimeouts timeouts;
+	VL53L0XSequenceStepEnables enables;
+	VL53L0XSequenceStepTimeouts timeouts;
 
 	this->getSequenceStepEnables(&enables);
 	this->getSequenceStepTimeouts(&enables, &timeouts);
@@ -703,7 +704,7 @@ bool VL53L0X::setVcselPulsePeriod(vcselPeriodType type, uint8_t periodPCLKs) {
 	return true;
 }
 
-uint8_t VL53L0X::getVcselPulsePeriod(vcselPeriodType type) {
+uint8_t VL53L0X::getVcselPulsePeriod(vl53l0xVcselPeriodType type) {
 	if (type == VcselPeriodPreRange) {
 		return decodeVcselPeriod(this->readRegister(PRE_RANGE_CONFIG_VCSEL_PERIOD));
 	} else if (type == VcselPeriodFinalRange) {
@@ -853,7 +854,7 @@ bool VL53L0X::getSPADInfo(uint8_t* count, bool* typeIsAperture) {
 	return true;
 }
 
-void VL53L0X::getSequenceStepEnables(VL53L0X::SequenceStepEnables* enables) {
+void VL53L0X::getSequenceStepEnables(VL53L0XSequenceStepEnables* enables) {
 	uint8_t sequenceConfig = this->readRegister(SYSTEM_SEQUENCE_CONFIG);
 
 	enables->tcc = (sequenceConfig >> 4) & 0x1;
@@ -863,7 +864,7 @@ void VL53L0X::getSequenceStepEnables(VL53L0X::SequenceStepEnables* enables) {
 	enables->finalRange = (sequenceConfig >> 7) & 0x1;
 }
 
-void VL53L0X::getSequenceStepTimeouts(const VL53L0X::SequenceStepEnables * enables, VL53L0X::SequenceStepTimeouts * timeouts) {
+void VL53L0X::getSequenceStepTimeouts(const VL53L0XSequenceStepEnables * enables, VL53L0XSequenceStepTimeouts * timeouts) {
 	timeouts->preRangeVCSELPeriodPCLKs = this->getVcselPulsePeriod(VcselPeriodPreRange);
 
 	timeouts->msrcDssTccMCLKs = this->readRegister(MSRC_CONFIG_TIMEOUT_MACROP) + 1;

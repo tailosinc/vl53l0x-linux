@@ -3,6 +3,10 @@ Version: 0.1.4<br>
 Release date: 12.03.2017<br>
 Changelog: see git log
 
+## I2Cdev version
+This version aims to be a standalone include-only version without any dependencies.
+Aimed primarily at BeagleBone boards, as there is no WiringPi/WiringX/etc for them.
+
 ## Summary
 This is a library for Linux that helps interface with ST's [VL53L0X time-of-flight distance sensor](https://www.pololu.com/product/2490). The library makes it simple to configure the sensor and read range data from it via I&sup2;C.
 

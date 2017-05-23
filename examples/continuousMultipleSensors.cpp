@@ -1,11 +1,10 @@
-#include <VL53L0X.h>
+#include "VL53L0X.hpp"
 
 #include <chrono>
 #include <csignal>
 #include <iomanip>
 #include <iostream>
 #include <unistd.h>
-#include <wiringPi.h>
 
 volatile sig_atomic_t exitFlag = 0;
 void sigintHandler(int) {
@@ -31,15 +30,11 @@ int main() {
 	// Register SIGINT handler
 	signal(SIGINT, sigintHandler);
 
-	// Initialize GPIO connectivity
-	wiringPiSetup();
-
 	// Create sensor objects' array
 	VL53L0X* sensors[SENSOR_COUNT];
 
 	// Create sensors (and ensure GPIO pin mode)
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
-		pinMode(pins[i], OUTPUT);
 		sensors[i] = new VL53L0X(pins[i]);
 		sensors[i]->powerOff();
 	}
@@ -119,7 +114,6 @@ int main() {
 	for (int i = 0; i < SENSOR_COUNT; ++i) {
 		sensors[i]->stopContinuous();
 		delete sensors[i];
-		digitalWrite(pins[i], LOW);
 	}
 	return 0;
 }
