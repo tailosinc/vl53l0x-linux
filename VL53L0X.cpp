@@ -355,10 +355,8 @@ void VL53L0X::writeRegister(uint8_t reg, uint8_t value) {
 }
 
 void VL53L0X::writeRegister16Bit(uint8_t reg, uint16_t value) {
-	// Reverse endianness
-	uint16_t valueFixed = ((value & 0xFF) << 8) + ((value & 0xFF00) >> 8);
-
-	bool p = I2Cdev::writeWord(this->address, reg, valueFixed);
+	// No need to reverse endinaness as writeWord does that for us
+	bool p = I2Cdev::writeWord(this->address, reg, value);
 	if (!p) {
 		throw(std::string("Error writing word to register: ") + std::string(strerror(errno)));
 	}
@@ -367,10 +365,10 @@ void VL53L0X::writeRegister16Bit(uint8_t reg, uint16_t value) {
 void VL53L0X::writeRegister32Bit(uint8_t reg, uint32_t value) {
 	// Split 32-bit word into MS ... LS bytes
 	uint8_t data[4];
-	data[0] = (value >> 24) & 0xFF;
-	data[1] = (value >> 16) & 0xFF;
-	data[2] = (value >> 8) & 0xFF;
-	data[3] = value & 0xFF;
+	data[0] = value & 0xFF;
+	data[1] = (value >> 8) & 0xFF;
+	data[2] = (value >> 16) & 0xFF;
+	data[3] = (value >> 24) & 0xFF;
 
 	bool p = I2Cdev::writeBytes(this->address, reg, 4, data);
 	if (!p) {
@@ -378,11 +376,7 @@ void VL53L0X::writeRegister32Bit(uint8_t reg, uint32_t value) {
 	}
 }
 
-void VL53L0X::writeRegisterMultiple(uint8_t reg, const uint8_t* source, uint8_t count) {
-	uint8_t data[4];
-	for (uint8_t i = 0; i < 4; ++i) {
-		data[i] = source[i];
-	}
+void VL53L0X::writeRegisterMultiple(uint8_t reg, const uint8_t* data, uint8_t count) {
 	bool p = I2Cdev::writeBytes(this->address, reg, count, data);
 	if (!p) {
 		throw(std::string("Error writing block to register"));
@@ -400,26 +394,30 @@ uint8_t VL53L0X::readRegister(uint8_t reg) {
 
 uint16_t VL53L0X::readRegister16Bit(uint8_t reg) {
 	uint8_t data[2];
+	// TODO: change to readWord if implemented; remove reversing endianness afterwards
 	int8_t p = I2Cdev::readBytes(this->address, reg, 2, data);
 
 	if (p == -1) {
 		throw(std::string("Error reading word from register"));
 	}
 
+	// Reverse endianness - readBytes doesn't do it for us
 	return ((int16_t)(data[0]) << 8) + (int16_t)(data[1]);
 }
 
 uint32_t VL53L0X::readRegister32Bit(uint8_t reg) {
 	uint8_t data[4];
+	// TODO: change to readWords if implemented; remove reversing endianness afterwards
 	int8_t p = I2Cdev::readBytes(this->address, reg, 4, data);
 
 	if (p == -1) {
 		throw(std::string("Error reading dword from register"));
 	}
 
-	uint32_t value = (uint32_t)data[0] << 24;
-	value += (uint32_t)data[1]<<16;
-	value += (uint32_t)data[2]<<8;
+	uint32_t value = 0;
+	value += (uint32_t)data[0] << 24;
+	value += (uint32_t)data[1] << 16;
+	value += (uint32_t)data[2] << 8;
 	value += (uint32_t)data[3];
 
 	return value;
