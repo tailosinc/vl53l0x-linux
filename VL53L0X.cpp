@@ -376,7 +376,11 @@ void VL53L0X::writeRegister32Bit(uint8_t reg, uint32_t value) {
 	}
 }
 
-void VL53L0X::writeRegisterMultiple(uint8_t reg, const uint8_t* data, uint8_t count) {
+void VL53L0X::writeRegisterMultiple(uint8_t reg, const uint8_t* source, uint8_t count) {
+	uint8_t data[4];
+	for (uint8_t i = 0; i < 4; ++i) {
+		data[i] = source[i];
+	}
 	bool p = I2Cdev::writeBytes(this->address, reg, count, data);
 	if (!p) {
 		throw(std::string("Error writing block to register"));
