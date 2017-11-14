@@ -1,39 +1,32 @@
 # VL53L0X library for Linux
-Version: 0.1.4<br>
-Release date: 12.03.2017<br>
+Version: 0.1.5<br>
+Release date: 14.11.2017<br>
 Changelog: see git log
-
-## I2Cdev version
-This version aims to be a standalone include-only version without any dependencies.
-Aimed primarily at BeagleBone boards, as there is no WiringPi/WiringX/etc for them.
 
 ## Summary
 This is a library for Linux that helps interface with ST's [VL53L0X time-of-flight distance sensor](https://www.pololu.com/product/2490). The library makes it simple to configure the sensor and read range data from it via I&sup2;C.
 
 Additionally it provides support for managing multiple sensors connected to the same bus by managing hardware standby of individual sensors via their XSHUT pins, see [multiple sensors section](#multiple-sensors)
 
+It uses `i2cdev` library for I2C access and `/sys/class/gpio/*` files for GPIO.
+
+### Feedback, bugs, feature requests...
+Pull requests and issue reports are welcome!
+
 ## Table of Contents
 <!-- MarkdownTOC depth=0 autolink="true" bracket="round" -->
 
 - [Development status](#development-status)
 - [Supported platforms](#supported-platforms)
-- [Used libraries/dependencies](#used-librariesdependencies)
 - [Usage](#usage)
 	- [Hardware](#hardware)
 		- [Connections](#connections)
 			- [Odroid C2](#odroid-c2)
 			- [Raspberry Pi](#raspberry-pi)
+			- [BeagleBone Green Wireless](#beaglebone-green-wireless)
 	- [Software](#software)
-		- [Building](#building)
 		- [Installation](#installation)
-			- [Debian](#debian)
-			- [Archlinux](#archlinux)
-			- [Manual \(others\)](#manual-others)
 		- [Using the library](#using-the-library)
-		- [Building your code using the library](#building-your-code-using-the-library)
-			- [Using system-installed library and plain GCC](#using-system-installed-library-and-plain-gcc)
-			- [Using system-installed library and CMake](#using-system-installed-library-and-cmake)
-			- [Using library from userspace](#using-library-from-userspace)
 	- [Multiple sensors](#multiple-sensors)
 - [Examples](#examples)
 	- [Single ranging mode, single sensor](#single-ranging-mode-single-sensor)
@@ -42,6 +35,7 @@ Additionally it provides support for managing multiple sensors connected to the 
 - [ST's VL53L0X API and this library](#sts-vl53l0x-api-and-this-library)
 - [Library reference](#library-reference)
 - [Special thanks](#special-thanks)
+- [License](#license)
 
 <!-- /MarkdownTOC -->
 
@@ -49,17 +43,18 @@ Additionally it provides support for managing multiple sensors connected to the 
 
 ## Development status
 * __WORKING__
-* `Wire.h` replaced with `WiringPi`
+* `Wire.h` replaced with `i2cdev` and `/sys/class/gpio` access
 * Multiple sensors support added
 * Hardware standby (XSHUT) management support added (part of multiple sensors support)
-* Single sensor: tested and working (`examples/single`)
-* Multiple sensors: tested and working (`examples/singleMultipleSensors`)
+* Single sensor: tested and working (`examples/single`) (NOTE: requires update to i2cdev)
+* Multiple sensors: tested and working (`examples/singleMultipleSensors`) (NOTE: requires update to i2cdev)
 * Continuous measurement: tested and working (`examples/continuousMultipleSensors`)
 * Code style consistency improved
 * Documentation moved to header (why would you want them with source?)
 * Other minor improvements
 
 TODO:
+* Update I2Cdev to accept i2c device path as argument
 * Improve/add missing documentation
 * More examples/tests (?)
 * Better error handling/reporting (?)
@@ -67,25 +62,19 @@ TODO:
 ---
 
 ## Supported platforms
-* Odroid C2 - main target board
-* Odroid C1/XU3/XU4 - as supported by linked WiringPi fork
-* Raspberry Pi (any) - as supported by base WiringPi library
-* Others - possible but unsure
+Should work on all platforms supporting Linux I2Cdev access (`/dev/i2c-*` device files) and GPIO access via `/sys/class/gpio/*`.
 
----
-
-## Used libraries/dependencies
-* [WiringPi (my fork)](https://github.com/mjbogusz/wiringPi) - for both I&sup2;C and GPIO connectivity. My forked version adds support for Odroid boards and for writing block data to I&sup2;C
+Tested on BeagleBone Green Wireless.
 
 ---
 
 ## Usage
 ### Hardware
-A [VL53L0X carrier](https://www.pololu.com/product/2490) can be purchased from Pololu's website.  Before continuing, careful reading of the [product page](https://www.pololu.com/product/2490) as well as the VL53L0X datasheet is recommended.
+A [VL53L0X carrier](https://www.pololu.com/product/2490) can be purchased e.g. from Pololu's website.  Before continuing, careful reading of the [product page](https://www.pololu.com/product/2490) as well as the VL53L0X datasheet is recommended.
 
 Important notes on hardware:
 * XSHUT is connected via pull-up resistor to VIN, therefore the sensor can be powered from GPIO even if VIN is disconnected
-* Even putting the sensor to hardware standby (XSHUT low, VIN connected) will reset its address (see [Multiple sensors secton](#multiple-sensors) on why that's important)
+* Even putting the sensor to hardware standby (XSHUT low, VIN connected) will reset its address! (see [Multiple sensors secton](#multiple-sensors) on why that's important)
 
 #### Connections
 ##### Odroid C2
@@ -113,47 +102,28 @@ Of course, you can also use `I2CB_SDA/SCL` and any other `GPIOX` and `Ground` pi
      Ground (Pin #9) - GND
 ```
 
+##### BeagleBone Green Wireless
+_NOTE: you have to configure BeagleBone to enable I2C and GPIO on the specific pin you want to use via DTBs._
+
+_NOTE2: GPIOs are organised in blocks of 32 and the resulting GPIO number in `/sys/class/gpio/` is (block number * 32 + gpio number), e.g. `GPIO3_19` -> `/sys/class/gpio/gpio115`_
+
+```
+               BBGW   VL53L0X board
+-------------------   -------------
+ 3.3V Power (P9_03) - VIN
+       SDA2 (P9_20) - SDA
+       SCL2 (P9_19) - SCL
+   GPIO3_19 (P9_27) - XSHUT
+     Ground (P9_01) - GND
+```
+
 ### Software
-#### Building
-```sh
-cd build/release
-cmake ../..
-make
-```
-
-Notes:
-
-If WiringPi library is not installed system wise, you can specify its location on build-time.<br>
-It may be specified via ENV (`WIRINGPI_DIR="/path/to/wiringpi/dir" cmake`) or via cmake's definition (`cmake -D WIRINGPI_DIR="/path/to/wiringpi/dir"`).<br>
-
-CMake will _try_ to force gcc/g++-6 usage but will silently fallback to default system compiler if these are not found.
-
 #### Installation
-Note: you can include and link this library in userspace, see [relevant section](#building-your-code-using-the-library)
+Simply add all the `.cpp` and `.hpp` files to your project and modify your build script to include them.
 
-Note2: there are (or will be) pre-built packages for Debian (and derivatives like Ubuntu) and Archlinux in Github's 'release' section. You can download proper package from there and skip to installation via package manager (last step in instructions below).
+See included `CMakeLists.txt` and [examples section](#examples) for an example on how to do it using CMake.
 
-##### Debian
-```sh
-cd build/release
-cmake ../..
-make
-cpack -G DEB
-sudo dpkg -i vl53l0x-linux-*.deb
-```
-##### Archlinux
-```sh
-cd build/archlinux
-makepkg
-sudo pacman -U vl53l0x-linux-*.pkg.*
-```
-##### Manual (others)
-```sh
-cd build/release
-cmake ../..
-make
-sudo make install
-```
+_NOTE: If you intend to use other I2C bus than `/dev/i2c-1`, modify the `#define I2C_DEV_PATH` in `I2Cdev.hpp` file._
 
 #### Using the library
 * Include `<VL53L0X.h>`
@@ -171,24 +141,6 @@ sudo make install
 
 See [examples section](#examples) for reference and [Multiple sensors section](#multiple-sensors) for instructions how to use multiple sensors at once.
 
-#### Building your code using the library
-##### Using system-installed library and plain GCC
-Link against `vl53l0x`, e.g.:
-```sh
-g++ -lvl53l0x your_code.cpp
-```
-##### Using system-installed library and CMake
-```cmake
-find_package (vl53l0x REQUIRED)
-target_link_libraries (your_target LINK_PUBLIC vl53l0x)
-```
-
-##### Using library from userspace
-Add `VL53L0X.h` to include path, link against built `libvl53l0x.so`, e.g.:
-```sh
-g++ -I/path/to/VL53L0X.h -l/path/to/libvl53l0x.so your_code.cpp
-```
-
 ### Multiple sensors
 Multiple sensors can be used easily by connecting them all to the same I&sup2;C bus and connecting their XSHUT pins to free GPIO pins of your board.
 
@@ -200,9 +152,8 @@ Note that even putting the sensor to hardware standby (XSHUT low) will reset its
 * ...and so on
 
 That translates to following steps within your code:
-* initialize GPIO connectivity by calling `wiringPiSetup()` or `wiringPiSetupGpio()` and ensure the pins are in output mode (`pinMode(pin, OUTPUT)`)
 * pass XSHUT GPIO pin number to sensor object constructor (`VL53L0X(pin)`)
-* disable all sensors either by calling their `.powerOff()` methods or by writing low value to their GPIO pins (`digitalWrite(pin, LOW)`)
+* disable all sensors either by calling their `.powerOff()` method
 * initialize sensors one-by-one and set different address for each one before initializing the next one
 
 After that, reading range values from sensors is just like with single one.
@@ -211,9 +162,9 @@ See `examples/singleMultipleSensors.cpp` and `examples/continuousMultipleSensors
 ## Examples
 Build examples with:
 ```sh
-cd build/release
-cmake ../..
-make examples
+cd build
+cmake ..
+make
 ```
 and run with
 ```sh
@@ -226,10 +177,10 @@ and run with
 ### Single ranging mode, single sensor
 `examples/singleMinimal.cpp` shows the minimal working example.
 
-`examples/single.cpp` shows how to use a single sensor in single ranging mode in more detail and with proper commentary on what's going on.
+`examples/single.cpp` (NOTE: requires update to i2cdev) shows how to use a single sensor in single ranging mode in more detail and with proper commentary on what's going on.
 
 ### Single ranging mode, multiple sensors
-`examples/singleMultipleSensors.cpp` shows how to use multiple sensors at once in single ranging mode.
+`examples/singleMultipleSensors.cpp` (NOTE: requires update to i2cdev) shows how to use multiple sensors at once in single ranging mode.
 
 ### Continuous ranging mode, multiple sensors
 `examples/continuousMultipleSensors.cpp` shows how to use continuous ranging mode (with back-to-back measurements) while using multiple sensors at once.
@@ -239,11 +190,9 @@ Note: in my experiments on Odroid C2 board with Linux-RT kernel, I've managed to
 ---
 
 ## ST's VL53L0X API and this library
-_TODO: rewrite this to match this version of the library (Linux not Arduino)_
+Most of the functionality of this library is based on the [VL53L0X API](http://www.st.com/content/st_com/en/products/embedded-software/proximity-sensors-software/stsw-img005.html) provided by ST (STSW-IMG005), and some of the explanatory comments in the code are quoted or paraphrased from the API source code, API user manual (UM2039), and the VL53L0X datasheet. For more explanation about the library code and how it was derived from the API, see the block comments in VL53L0X.hpp and in-code comments in VL53L0X.cpp.
 
-Most of the functionality of this library is based on the [VL53L0X API](http://www.st.com/content/st_com/en/products/embedded-software/proximity-sensors-software/stsw-img005.html) provided by ST (STSW-IMG005), and some of the explanatory comments in the code are quoted or paraphrased from the API source code, API user manual (UM2039), and the VL53L0X datasheet. For more explanation about the library code and how it was derived from the API, see the comments in VL53L0X.cpp.
-
-This library is intended to provide a quicker and easier way to get started using the VL53L0X with an Arduino-compatible controller, in contrast to customizing and compiling ST's API for the Arduino. The library has a more streamlined interface, as well as smaller storage and memory footprints. However, it does not implement some of the more advanced functionality available in the API (for example, calibrating the sensor to work well under a cover glass), and it has less robust error checking. For advanced applications, especially when storage and memory are less of an issue, consider using the VL53L0X API directly.
+This library is intended to provide a quicker and easier way to get started using the VL53L0X with a GNU/Linux-driven single-board computer (like BeagleBone Black or Raspberry Pi), in contrast to customizing and compiling ST's API for that platform. The library has a more streamlined, object-oriented interface. However, it does not implement some of the more advanced functionality available in the API (for example, calibrating the sensor to work well under a cover glass), and it has less robust error checking. For advanced applications consider using the VL53L0X API directly (or opening PR/issue to add that functionality!).
 
 ---
 
@@ -316,3 +265,6 @@ __This section was not yet updated to match Linux version of the library - see h
 * Pololu for both the sensor breakout board and their [Arduino library](https://github.com/pololu/vl53l0x-arduino) this project bases upon
 * Drogon for his awesome [WiringPi library](http://wiringpi.com/), see notes in [my fork](https://github.com/mjbogusz/wiringPi)
 * ST for making this great sensor!
+
+## License
+This library is licensed under MIT license, see `LICENSE.txt` file for full license text.
