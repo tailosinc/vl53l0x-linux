@@ -1,12 +1,13 @@
 # VL53L0X library for Linux
-Version: 0.1.5<br>
-Release date: 14.11.2017<br>
+Version: 0.2.0<br>
+Release date: 05.05.2018<br>
 Changelog: see git log
 
 ## Summary
-This is a library for Linux that helps interface with ST's [VL53L0X time-of-flight distance sensor](https://www.pololu.com/product/2490). The library makes it simple to configure the sensor and read range data from it via I&sup2;C.
+This is a library for GNU/Linux that helps to interface with ST's [VL53L0X time-of-flight distance sensor](https://www.pololu.com/product/2490).
+This library makes it simple to configure the sensor and read range data from it via I&sup2;C.
 
-Additionally it provides support for managing multiple sensors connected to the same bus by managing hardware standby of individual sensors via their XSHUT pins, see [multiple sensors section](#multiple-sensors)
+Additionally it provides support for managing multiple sensors connected to the same bus by managing their hardware standby state via their XSHUT pins, see [multiple sensors section](#multiple-sensors)
 
 It uses `i2cdev` library for I2C access and `/sys/class/gpio/*` files for GPIO.
 
@@ -46,25 +47,23 @@ Pull requests and issue reports are welcome!
 * `Wire.h` replaced with `i2cdev` and `/sys/class/gpio` access
 * Multiple sensors support added
 * Hardware standby (XSHUT) management support added (part of multiple sensors support)
-* Single sensor: tested and working (`examples/single`) (NOTE: requires update to i2cdev)
-* Multiple sensors: tested and working (`examples/singleMultipleSensors`) (NOTE: requires update to i2cdev)
-* Continuous measurement: tested and working (`examples/continuousMultipleSensors`)
+* Single sensor: tested and working (`examples/single`)
+* Continuous measurement, multiple sensors: tested and working (`examples/continuousMultipleSensors`)
 * Code style consistency improved
+* Using std::exception for errors
 * Documentation moved to header (why would you want them with source?)
 * Other minor improvements
 
 TODO:
-* Update I2Cdev to accept i2c device path as argument
 * Improve/add missing documentation
-* More examples/tests (?)
-* Better error handling/reporting (?)
+* Update/modify/merge-in(?) I2Cdev to accept i2c device path as argument
 
 ---
 
 ## Supported platforms
-Should work on all platforms supporting Linux I2Cdev access (`/dev/i2c-*` device files) and GPIO access via `/sys/class/gpio/*`.
+The library should work on all platforms supporting Linux I2Cdev access (`/dev/i2c-*` device files) and GPIO access via `/sys/class/gpio/*`.
 
-Tested on BeagleBone Green Wireless.
+It was tested on a BeagleBone Green Wireless.
 
 ---
 
@@ -126,8 +125,8 @@ See included `CMakeLists.txt` and [examples section](#examples) for an example o
 _NOTE: If you intend to use other I2C bus than `/dev/i2c-1`, modify the `#define I2C_DEV_PATH` in `I2Cdev.hpp` file._
 
 #### Using the library
-* Include `<VL53L0X.h>`
-* Create instance of `VL53L0X` class
+* Include `"VL53L0X.hpp"`
+* Create an object of `VL53L0X` class
 * Call `.init()`
 * (Optional) set timing budget etc
 * For single range reading:
@@ -157,7 +156,7 @@ That translates to following steps within your code:
 * initialize sensors one-by-one and set different address for each one before initializing the next one
 
 After that, reading range values from sensors is just like with single one.
-See `examples/singleMultipleSensors.cpp` and `examples/continuousMultipleSensors.cpp` for reference.
+See `examples/continuousMultipleSensors.cpp` for reference.
 
 ## Examples
 Build examples with:
@@ -170,20 +169,17 @@ and run with
 ```sh
 ./examples/single
 ./examples/singleMinimal
-./examples/singleMultipleSensors
 ./examples/continuousMultipleSensors
 ```
 
 ### Single ranging mode, single sensor
 `examples/singleMinimal.cpp` shows the minimal working example.
 
-`examples/single.cpp` (NOTE: requires update to i2cdev) shows how to use a single sensor in single ranging mode in more detail and with proper commentary on what's going on.
-
-### Single ranging mode, multiple sensors
-`examples/singleMultipleSensors.cpp` (NOTE: requires update to i2cdev) shows how to use multiple sensors at once in single ranging mode.
+`examples/single.cpp` shows how to use a single sensor in single ranging mode in more detail and with proper commentary on what's going on.
 
 ### Continuous ranging mode, multiple sensors
 `examples/continuousMultipleSensors.cpp` shows how to use continuous ranging mode (with back-to-back measurements) while using multiple sensors at once.
+This is the most complex and thorough example and (after minor modifications) it was used in a real-life application on a mobile robot.
 
 Note: in my experiments on Odroid C2 board with Linux-RT kernel, I've managed to run 6 sensors at once with stable frequency of more than 50Hz!
 
