@@ -2,10 +2,12 @@
 
 #include <chrono>
 #include <csignal>
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <unistd.h>
 
+// SIGINT (CTRL-C) exit flag and signal handler
 volatile sig_atomic_t exitFlag = 0;
 void sigintHandler(int) {
 	exitFlag = 1;
@@ -38,23 +40,39 @@ int main() {
 		sensors[i] = new VL53L0X(pins[i]);
 		sensors[i]->powerOff();
 	}
+	// Just a check for an early CTRL-C
 	if (exitFlag) {
 		return 0;
 	}
 
-	// See multiple.cpp for notes on what's happening here
+	// For each sensor: create object, init the sensor (ensures power on), set timeout and address
+	// Note: don't power off - it will reset the address to default!
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
-		sensors[i]->init();
-		sensors[i]->setTimeout(200);
-		// Additionally, set the lowest possible timing budget
-		sensors[i]->setMeasurementTimingBudget(20000);
-		sensors[i]->setAddress(addresses[i]);
-		std::cout << "Sensor " << i << " initialized, real time budget: " << sensors[i]->getMeasurementTimingBudget() << std::endl;
+		try {
+			// Initialize...
+			sensors[i]->initialize();
+			// ...set measurement timeout...
+			sensors[i]->setTimeout(200);
+			// ...set the lowest possible timing budget (high speed mode)...
+			sensors[i]->setMeasurementTimingBudget(20000);
+			// ...and set I2C address...
+			sensors[i]->setAddress(addresses[i]);
+			// ...also, notify user.
+			std::cout << "Sensor " << i << " initialized, real time budget: " << sensors[i]->getMeasurementTimingBudget() << std::endl;
+		} catch (const std::exception & error) {
+			std::cerr << "Error initializing sensor " << i << " with reason:" << std::endl << error.what() << std::endl;
+			return 1;
+		}
 	}
 
 	// Start continuous back-to-back measurement
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
-		sensors[i]->startContinuous();
+		try {
+			sensors[i]->startContinuous();
+		} catch (const std::exception & error) {
+			std::cerr << "Error starting continuous read mode for sensor " << i << " with reason:" << std::endl << error.what() << std::endl;
+			return 2;
+		}
 	}
 
 	// Durations in nanoseconds
@@ -64,25 +82,35 @@ int main() {
 	// Initialize reference time measurement
 	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
+	// We need that variable after the for loop
 	int j = 0;
+	// Also, set fill and width options for cout so that measurements are aligned
+	std::cout << std::setw(4) << std::setfill('0');
+
+	// Take the measurements!
 	for (; !exitFlag && j < 100000; ++j) {
-		std::cout << "\rReading" << std::setw(4) << std::setfill('0') << j << " | ";
+		std::cout << "\rReading" << j << " | ";
 		for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 			uint16_t distance;
 			try {
+				// Read the range. Note that it's a blocking call
 				distance = sensors[i]->readRangeContinuousMillimeters();
-			} catch (std::string & err) {
-				std::cerr << err;
-				return 1;
+			} catch (const std::exception & error) {
+				std::cerr << std::endl << "Error geating measurement from sensor " << i << " with reason:" << std::endl << error.what() << std::endl;
+				// You may want to bail out here, depending on your application - error means issues on I2C bus read/write.
+				// return 3;
+				distance = 8096;
 			}
 
+			// Check for timeout
 			if (sensors[i]->timeoutOccurred()) {
-				std::cout << "\ntimeout: " << i << std::endl;
+				std::cout << "tout | ";
 			} else {
-				std::cout << std::setw(4) << distance << " | ";
+				// Display the reading
+				std::cout << distance << " | ";
 			}
 		}
-		std::cout << std::flush;
+		std::cout << std::endl << std::flush;
 
 		// Calculate duration of current iteration
 		std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -104,7 +132,7 @@ int main() {
 		}
 	}
 
-	// Print duration data
+	// Print measurement duration statistics
 	std::cout << "\nMax duration: " << maxDuration << "ns" << std::endl;
 	std::cout << "Min duration: " << minDuration << "ns" << std::endl;
 	std::cout << "Avg duration: " << totalDuration/(j+1) << "ns" << std::endl;
