@@ -3,7 +3,7 @@
 
 int main() {
 	VL53L0X sensor;
-	sensor.init();
+	sensor.initialize();
 	sensor.setTimeout(200);
 
 	for (int i = 0; i < 1000; ++i) {
