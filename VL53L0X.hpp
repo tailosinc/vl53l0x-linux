@@ -16,60 +16,41 @@ class VL53L0X {
 	public:
 		/*** Constructors and destructors ***/
 
-		VL53L0X(const int16_t xshutGPIOPin = -1, const uint8_t address = VL53L0X_ADDRESS_DEFAULT);
-
-		/*** Public methods ***/
-
-		void initGPIO();
 		/**
 		 * \brief Initialize sensor using sequence Based on VL53L0X_DataInit(), VL53L0X_StaticInit(), and VL53L0X_PerformRefCalibration().
+		 *
+		 * \param xshutGPIOPin - host's GPIO pin used to toggle sensor on and off. Defaults to -1 (unused).
+		 * \param ioMode2v8 - whether to configure the sensor for 2V8 mode (2.8V logic instead of 1.8V). Defaults to true.
+		 * \param address - I2C bus address of the sensor. Defaults to sensor's default address, change only if sensor was initialized to another address beforehand.
 		 *
 		 * This function does not perform reference SPAD calibration (VL53L0X_PerformRefSpadManagement()),
 		 * since the API user manual says that it is performed by ST on the bare modules;
 		 * It seems like that should work well enough unless a cover glass is added.
-		 * If ioMode2v8 (optional) is true or not given, the sensor is configured for 2V8 mode.
 		 */
-		void init(bool ioMode2v8 = true);
+		VL53L0X(const int16_t xshutGPIOPin = -1, bool ioMode2v8 = true, const uint8_t address = VL53L0X_ADDRESS_DEFAULT);
 
-		void powerOn();
-		void powerOff();
-
+		/*** Public methods ***/
 		/**
-		 * Write an 8-bit register.
-		 */
-		void writeRegister(uint8_t register, uint8_t value);
-		/**
-		 * Write a 16-bit register.
-		 */
-		void writeRegister16Bit(uint8_t register, uint16_t value);
-		/**
-		 * Write a 32-bit register.
+		 * \brief Initialize the sensor's hardware and, if needed, GPIO access on the host side.
 		 *
-		 * Based on VL53L0X_write_dword from VL53L0X kernel driver.
+		 * It's not part of the constructor as it can throw errors.
 		 */
-		void writeRegister32Bit(uint8_t register, uint32_t value);
+		void initialize();
 		/**
-		 * Write an arbitrary number of bytes from the given array to the sensor, starting at the given register.
+		 * Power on the sensor by setting its XSHUT pin to high via host's GPIO.
 		 */
-		void writeRegisterMultiple(uint8_t register, const uint8_t* source, uint8_t count);
+		void powerOn();
 		/**
-		 * Read an 8-bit register.
+		 * Power off the sensor by setting its XSHUT pin to low via host's GPIO.
 		 */
-		uint8_t readRegister(uint8_t register);
+		void powerOff();
 		/**
-		 * Read a 16-bit register.
+		 * Change sensor's I2C address (sets both the address on the physical sensor and within sensor's object).
 		 */
-		uint16_t readRegister16Bit(uint8_t register);
-		/**
-		 * Read a 32-bit register.
-		 */
-		uint32_t readRegister32Bit(uint8_t register);
-		/**
-		 * Read an arbitrary number of bytes from the sensor, starting at the given register, into the given array.
-		 */
-		void readRegisterMultiple(uint8_t register, uint8_t* destination, uint8_t count);
-
 		void setAddress(uint8_t newAddress);
+		/**
+		 * Get sensor's I2C address as last set.
+		 */
 		inline uint8_t getAddress() {
 			return this->address;
 		}
@@ -133,20 +114,28 @@ class VL53L0X {
 		void stopContinuous();
 		/**
 		 * Returns a range reading in millimeters when continuous mode is active.
+		 * Warning: Blocking call!
 		 *
 		 * readRangeSingleMillimeters() also calls this function after starting a single-shot range measurement.
 		 */
 		uint16_t readRangeContinuousMillimeters();
 		/**
 		 * Performs a single-shot range measurement and returns the reading in millimeters.
+		 * Warning: Blocking call!
 		 *
 		 * Based on VL53L0X_PerformSingleRangingMeasurement().
 		 */
 		uint16_t readRangeSingleMillimeters();
-
+		/**
+		 * Set value of timeout for measurements.
+		 * 0 (dafault value) means no time limit for measurements (infinite wait).
+		 */
 		inline void setTimeout(uint16_t timeout) {
 			this->ioTimeout = timeout;
 		}
+		/**
+		 * Get value of timeout for measurements as last set.
+		 */
 		inline uint16_t getTimeout() {
 			return this->ioTimeout;
 		}
@@ -157,8 +146,11 @@ class VL53L0X {
 	private:
 		/*** Private fields ***/
 
-		int16_t xshutGPIOPin;
 		uint8_t address;
+		int16_t xshutGPIOPin;
+		bool ioMode2v8;
+		std::string gpioFilename;
+		std::mutex fileAccessMutex;
 		bool gpioInitialized;
 
 		uint32_t measurementTimingBudgetMicroseconds;
@@ -168,12 +160,10 @@ class VL53L0X {
 		// read by init and used when starting measurement; is StopVariable field of VL53L0X_DevData_t structure in API
 		uint8_t stopVariable;
 
-		std::ofstream pruFile;
-		std::string gpioFilename;
-		std::mutex fileAccessMutex;
-
 		/*** Private methods ***/
 
+		void initHardware();
+		void initGPIO();
 		/**
 		 * Get reference SPAD (single photon avalanche diode) count and type.
 		 *
@@ -222,6 +212,44 @@ class VL53L0X {
 		 * Based on VL53L0X_perform_single_ref_calibration().
 		 */
 		bool performSingleRefCalibration(uint8_t vhvInitByte);
+
+		/*** I2C wrapper methods ***/
+
+		/**
+		 * Write an 8-bit register.
+		 */
+		void writeRegister(uint8_t register, uint8_t value);
+		/**
+		 * Write a 16-bit register.
+		 */
+		void writeRegister16Bit(uint8_t register, uint16_t value);
+		/**
+		 * Write a 32-bit register.
+		 *
+		 * Based on VL53L0X_write_dword from VL53L0X kernel driver.
+		 */
+		void writeRegister32Bit(uint8_t register, uint32_t value);
+		/**
+		 * Write an arbitrary number of bytes from the given array to the sensor, starting at the given register.
+		 */
+		void writeRegisterMultiple(uint8_t register, const uint8_t* source, uint8_t count);
+		/**
+		 * Read an 8-bit register.
+		 */
+		uint8_t readRegister(uint8_t register);
+		/**
+		 * Read a 16-bit register.
+		 */
+		uint16_t readRegister16Bit(uint8_t register);
+		/**
+		 * Read a 32-bit register.
+		 */
+		uint32_t readRegister32Bit(uint8_t register);
+		/**
+		 * Read an arbitrary number of bytes from the sensor, starting at the given register, into the given array.
+		 */
+		void readRegisterMultiple(uint8_t register, uint8_t* destination, uint8_t count);
+
 };
 
 #endif
