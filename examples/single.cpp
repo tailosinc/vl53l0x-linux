@@ -53,8 +53,8 @@ int main() {
 			// Lower the return signal rate limit (default is 0.25 MCPS)
 			sensor.setSignalRateLimit(0.1);
 			// Increase laser pulse periods (defaults are 14 and 10 PCLKs)
-			sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodPreRange, 18);
-			sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodFinalRange, 14);
+			sensor.setVcselPulsePeriod(VcselPeriodPreRange, 18);
+			sensor.setVcselPulsePeriod(VcselPeriodFinalRange, 14);
 		} catch (const std::exception & error) {
 			std::cerr << "Error enabling long range mode with reason:" << std::endl << error.what() << std::endl;
 			return 2;
