@@ -63,7 +63,10 @@ TODO:
 ## Supported platforms
 The library should work on all platforms supporting Linux I2Cdev access (`/dev/i2c-*` device files) and GPIO access via `/sys/class/gpio/*`.
 
-It was tested on a BeagleBone Green Wireless.
+It was tested on a BeagleBone Green Wireless with 5 sensors working on the same bus.
+
+As per [#6](../../issues/6) it also works on BeagleBone Blue with Seeed Studio's [Time of Flight Distance Sensor](https://www.seeedstudio.com/Grove-Time-of-Flight-Distance-Sensor%28VL53L0X%29-p-3086.html) (yet another breakout board with Grove connector)
+However, using multiple sensors will require soldering additional connectors for the XSHUT pins (one of the two 2.54 pads by the Grove connector) and wiring them to the main BBU board, see [Multiple sensors section](#multiple-sensors) for details.
 
 ---
 
