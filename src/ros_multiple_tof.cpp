@@ -136,6 +136,8 @@ int main(int argc, char** argv)
 		}
 
     tof_range_pub.publish(range_array);
+		
+		rate.sleep();
 	}
 
 	// Clean-up: delete objects, set GPIO/XSHUT pins to low.

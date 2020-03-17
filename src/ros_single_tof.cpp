@@ -111,6 +111,8 @@ int main(int argc, char** argv) {
 			range_msg.data = distance;
 			tof_range_pub.publish(range_msg);
 		}
+
+		rate.sleep();
 	}
 
 	return 0;
