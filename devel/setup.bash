@@ -1,1 +1,0 @@
-/home/ketan/vl53l0x-linux/devel/.private/catkin_tools_prebuild/setup.bash
