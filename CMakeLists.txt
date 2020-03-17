@@ -31,14 +31,13 @@ generate_messages(DEPENDENCIES
   std_msgs
 )
 
-add_library(i2cdev src/I2Cdev.cpp)
-add_library(vl53l0x src/VL53L0X.cpp)
+add_library(vl53l0x src/I2Cdev.cpp src/VL53L0X.cpp)
 
 add_executable(single_vl53l0x src/ros_single_tof.cpp)
-target_link_libraries(single_vl53l0x vl53l0x i2cdev ${catkin_LIBRARIES})
+target_link_libraries(single_vl53l0x vl53l0x ${catkin_LIBRARIES})
 
 add_executable(multiple_vl53l0x src/ros_multiple_tof.cpp)
-target_link_libraries(multiple_vl53l0x vl53l0x i2cdev ${catkin_LIBRARIES})
+target_link_libraries(multiple_vl53l0x vl53l0x ${catkin_LIBRARIES})
 
 ### Examples
 # add_subdirectory (examples)
