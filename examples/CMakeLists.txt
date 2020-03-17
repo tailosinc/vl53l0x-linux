@@ -10,10 +10,11 @@ set (VL53L0X_EXAMPLES
 foreach (example ${VL53L0X_EXAMPLES})
 	add_executable (${example}
 		${example}.cpp
-		../VL53L0X.cpp
-		../I2Cdev.cpp
+		../src/VL53L0X.cpp
+		../src/I2Cdev.cpp
 	)
 	target_include_directories (${example} PUBLIC
 		${CMAKE_CURRENT_SOURCE_DIR}/../
+		../include
 	)
 endforeach (example)

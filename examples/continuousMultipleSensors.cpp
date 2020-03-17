@@ -1,4 +1,4 @@
-#include "VL53L0X.hpp"
+#include "VL53L0X.h"
 
 #include <chrono>
 #include <csignal>
@@ -16,17 +16,18 @@ void sigintHandler(int) {
 int main() {
 	// Configuration constants
 	// Number of sensors. If changed, make sure to adjust pins and addresses accordingly (ie to match size).
-	const int SENSOR_COUNT = 6;
-	// GPIO pins to use for sensors' XSHUT. As exported by WiringPi.
-	const uint8_t pins[SENSOR_COUNT] = { 0, 1, 2, 3, 4, 5 };
+	const int SENSOR_COUNT = 2;
+	// GPIO pins to use for sensors' XSHUT. As exported by RPi BCM. BCM is the protocol followed by the 
+	// /sys/class/gpio files that are used for GPIO control here. Run `gpio readall` for the pinout mapping.
+	const uint8_t pins[SENSOR_COUNT] = { 17, 18 };
 	// Sensors' addresses that will be set and used. These have to be unique.
 	const uint8_t addresses[SENSOR_COUNT] = {
 		VL53L0X_ADDRESS_DEFAULT + 2,
-		VL53L0X_ADDRESS_DEFAULT + 4,
-		VL53L0X_ADDRESS_DEFAULT + 6,
-		VL53L0X_ADDRESS_DEFAULT + 10,
-		VL53L0X_ADDRESS_DEFAULT + 12,
-		VL53L0X_ADDRESS_DEFAULT + 14
+		VL53L0X_ADDRESS_DEFAULT + 4
+		// VL53L0X_ADDRESS_DEFAULT + 6,
+		// VL53L0X_ADDRESS_DEFAULT + 10,
+		// VL53L0X_ADDRESS_DEFAULT + 12,
+		// VL53L0X_ADDRESS_DEFAULT + 14
 	};
 
 	// Register SIGINT handler
@@ -40,6 +41,7 @@ int main() {
 		sensors[i] = new VL53L0X(pins[i]);
 		sensors[i]->powerOff();
 	}
+	usleep(10000);
 	// Just a check for an early CTRL-C
 	if (exitFlag) {
 		return 0;
@@ -52,11 +54,13 @@ int main() {
 			// Initialize...
 			sensors[i]->initialize();
 			// ...set measurement timeout...
+			usleep(10000);
 			sensors[i]->setTimeout(200);
 			// ...set the lowest possible timing budget (high speed mode)...
 			sensors[i]->setMeasurementTimingBudget(20000);
 			// ...and set I2C address...
 			sensors[i]->setAddress(addresses[i]);
+			usleep(10000);
 			// ...also, notify user.
 			std::cout << "Sensor " << i << " initialized, real time budget: " << sensors[i]->getMeasurementTimingBudget() << std::endl;
 		} catch (const std::exception & error) {

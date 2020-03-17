@@ -6,7 +6,7 @@
  * The range readings are in units of mm.
  */
 
-#include "VL53L0X.hpp"
+#include "VL53L0X.h"
 
 #include <chrono>
 #include <csignal>
@@ -102,7 +102,7 @@ int main() {
 			// Read the range. Note that it's a blocking call
 			distance = sensor.readRangeSingleMillimeters();
 		} catch (const std::exception & error) {
-			std::cerr << "Error geating measurement with reason:" << std::endl << error.what() << std::endl;
+			std::cerr << "Error getting measurement with reason:" << std::endl << error.what() << std::endl;
 			// You may want to bail out here, depending on your application - error means issues on I2C bus read/write.
 			// return 3;
 			distance = 8096;

@@ -41,7 +41,7 @@ THE SOFTWARE.
 ===============================================
 */
 
-#include "I2Cdev.hpp"
+#include "I2Cdev.h"
 
 #include <cstdio>
 #include <cstdlib>

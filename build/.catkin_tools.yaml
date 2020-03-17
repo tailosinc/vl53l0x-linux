@@ -1,0 +1,6 @@
+devel_space: /home/ketan/vl53l0x-linux/devel
+install: false
+install_space: /home/ketan/vl53l0x-linux/install
+profile: default
+source_space: /home/ketan/vl53l0x-linux/src
+workspace: /home/ketan/vl53l0x-linux

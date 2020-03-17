@@ -1,0 +1,8 @@
+Symlinking /home/ketan/vl53l0x-linux/devel/./setup.zsh
+Symlinking /home/ketan/vl53l0x-linux/devel/./setup.bash
+Symlinking /home/ketan/vl53l0x-linux/devel/./env.sh
+Symlinking /home/ketan/vl53l0x-linux/devel/./setup.sh
+Symlinking /home/ketan/vl53l0x-linux/devel/./_setup_util.py
+Symlinking /home/ketan/vl53l0x-linux/devel/lib/pkgconfig/catkin_tools_prebuild.pc
+Symlinking /home/ketan/vl53l0x-linux/devel/share/catkin_tools_prebuild/cmake/catkin_tools_prebuildConfig.cmake
+Symlinking /home/ketan/vl53l0x-linux/devel/share/catkin_tools_prebuild/cmake/catkin_tools_prebuildConfig-version.cmake
