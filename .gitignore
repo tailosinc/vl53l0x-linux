@@ -1,1 +1,4 @@
 *.sublime-*
+.catkin_tools/*
+build/*
+.vscode/*
