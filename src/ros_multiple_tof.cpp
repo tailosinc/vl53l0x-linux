@@ -8,8 +8,8 @@
 #include <unistd.h>
 
 #include <ros/ros.h>
-#include "std_msgs/UInt16.h"
-#include "vl53l0x_ros/UInt16Array.h"
+#include "std_msgs/Int32.h"
+#include "vl53l0x_ros/Int32Array.h"
 
 // SIGINT (CTRL-C) exit flag and signal handler
 volatile sig_atomic_t exitFlag = 0;
@@ -104,10 +104,11 @@ int main(int argc, char** argv)
 
   ros::init(argc, argv, "multiple_tof");
   ros::NodeHandle nh;
-  ros::Publisher tof_range_pub = nh.advertise<vl53l0x_ros::UInt16Array>("/tof_range", 10);
+  ros::Rate rate(10);
+  ros::Publisher tof_range_pub = nh.advertise<vl53l0x_ros::Int32Array>("/tof_range", 10);
 	// Take the measurements!
-  vl53l0x_ros::UInt16Array range_array;
-  std_msgs::UInt16 distance;
+  vl53l0x_ros::Int32Array range_array;
+  std_msgs::Int32 distance;
   while (ros::ok())
   {
 		std::cout << "\rReading" << j << " | ";

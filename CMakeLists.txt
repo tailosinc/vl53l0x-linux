@@ -24,7 +24,7 @@ include_directories(
 )
 
 add_message_files(FILES
-UInt16Array.msg
+Int32Array.msg
 )
 
 generate_messages(DEPENDENCIES
