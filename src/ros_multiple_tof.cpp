@@ -108,10 +108,10 @@ int main(int argc, char** argv)
   ros::Publisher tof_range_pub = nh.advertise<vl53l0x_ros::Int32Array>("/tof_range", 10);
 	// Take the measurements!
   vl53l0x_ros::Int32Array range_array;
+	range_array.ranges.resize(SENSOR_COUNT);
   std_msgs::Int32 distance;
   while (ros::ok())
   {
-		std::cout << "\rReading" << j << " | ";
 		for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) 
     {
       distance.data = 8096;
