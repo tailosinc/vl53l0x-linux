@@ -96,8 +96,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	// We need that variable after the for loop
-	int j = 0;
 	// Also, set fill and width options for cout so that measurements are aligned
 	std::cout << std::setw(4) << std::setfill('0');
 
