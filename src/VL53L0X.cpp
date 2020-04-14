@@ -1,5 +1,5 @@
-#include "VL53L0X.hpp"
-#include "I2Cdev.hpp"
+#include "VL53L0X.h"
+#include "I2Cdev.h"
 
 #include <cerrno>
 // strerror()

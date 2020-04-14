@@ -1,5 +1,5 @@
 #include <iostream>
-#include "VL53L0X.hpp"
+#include "VL53L0X.h"
 
 int main() {
 	VL53L0X sensor;

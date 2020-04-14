@@ -10,7 +10,7 @@
 #include <fstream>
 #include <mutex>
 
-#include "VL53L0X_defines.hpp"
+#include "VL53L0X_defines.h"
 
 class VL53L0X {
 	public:

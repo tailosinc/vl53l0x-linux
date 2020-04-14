@@ -1,11 +1,3 @@
-/** This example shows how to get single-shot range measurements from the VL53L0X.
- * The sensor can optionally be configured with different ranging profiles,
- * as described in the VL53L0X API user manual, to get better performance for a certain application.
- * This code is based on "Single.ino" example from vl53l0x-arduino library,
- * which in turn is based on the four "SingleRanging" examples in the VL53L0X API.
- * The range readings are in units of mm.
- */
-
 #include "VL53L0X.h"
 
 #include <chrono>
@@ -14,6 +6,9 @@
 #include <iomanip>
 #include <iostream>
 #include <unistd.h>
+
+#include <ros/ros.h>
+#include "std_msgs/Int32.h"
 
 // SIGINT (CTRL-C) exit flag and signal handler
 volatile sig_atomic_t exitFlag = 0;
@@ -32,7 +27,7 @@ void sigintHandler(int) {
 	#endif
 #endif
 
-int main() {
+int main(int argc, char** argv) {
 	// Register SIGINT handler
 	signal(SIGINT, sigintHandler);
 
@@ -84,24 +79,23 @@ int main() {
 		return 0;
 	}
 
-	// Durations in nanoseconds
-	uint64_t totalDuration = 0;
-	uint64_t maxDuration = 0;
-	uint64_t minDuration = 1000*1000*1000;
-	// Initialize reference time measurement
-	std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-	// We need iterator value after the loop
-	int i = 0;
 	// Also, set width/fill for cout stream so that measurements are aligned
 	std::cout << "\rReading" << std::setw(4) << std::setfill('0');
 	// Take the measurements!
-	for (; !exitFlag && i < 100000; ++i) {
+  ros::init(argc, argv, "single_tof");
+  ros::NodeHandle nh;
+  ros::Publisher tof_range_pub = nh.advertise<std_msgs::Int32>("/tof_range", 10);
+  ros::Rate rate(10);
+	while (ros::ok()) 
+	{
 		uint16_t distance;
-		try {
+		std_msgs::Int32 range_msg;
+		try 
+		{
 			// Read the range. Note that it's a blocking call
 			distance = sensor.readRangeSingleMillimeters();
-		} catch (const std::exception & error) {
+		} catch (const std::exception & error) 
+		{
 			std::cerr << "Error getting measurement with reason:" << std::endl << error.what() << std::endl;
 			// You may want to bail out here, depending on your application - error means issues on I2C bus read/write.
 			// return 3;
@@ -109,38 +103,18 @@ int main() {
 		}
 
 		// Check IO timeout and print range information
-		if (sensor.timeoutOccurred()) {
-			std::cout << "\rReading" << i << " | timeout!" << std::endl;
-		} else {
-			std::cout << "\rReading" << i << " | " << distance << std::endl;
+		if (sensor.timeoutOccurred()) 
+		{
+			std::cout << "\rToF Reading timeout occured!" << std::endl;
+		} 
+		else 
+		{
+			range_msg.data = distance;
+			tof_range_pub.publish(range_msg);
 		}
-		std::cout << std::flush;
 
-		// Calculate duration of current iteration
-		std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-		uint64_t duration = (std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1)).count();
-		// Save current time as reference for next iteration
-		t1 = t2;
-		// Add total measurements duration
-		totalDuration += duration;
-		// Skip comparing first measurement against max and min as it's not a full iteration
-		if (i == 0) {
-			continue;
-		}
-		// Check and save max and min iteration duration
-		if (duration > maxDuration) {
-			maxDuration = duration;
-		}
-		if (duration < minDuration) {
-			minDuration = duration;
-		}
+		rate.sleep();
 	}
-
-	// Print duration data
-	std::cout << "\nMax duration: " << maxDuration << "ns" << std::endl;
-	std::cout << "Min duration: " << minDuration << "ns" << std::endl;
-	std::cout << "Avg duration: " << totalDuration/(i+1) << "ns" << std::endl;
-	std::cout << "Avg frequency: " << 1000000000/(totalDuration/(i+1)) << "Hz" << std::endl;
 
 	return 0;
 }
