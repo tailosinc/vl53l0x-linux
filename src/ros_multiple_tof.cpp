@@ -50,6 +50,7 @@ int main(int argc, char** argv)
 		sensors[i] = new VL53L0X(pins[i]);
 		sensors[i]->powerOff();
 	}
+	// Wait to ensure all sensors power off, just to hedge
 	usleep(10000);
 	// Just a check for an early CTRL-C
 	if (exitFlag) 
@@ -64,14 +65,15 @@ int main(int argc, char** argv)
 		try {
 			// Initialize...
 			sensors[i]->initialize();
-			// ...set measurement timeout...
+			// Add some time to ensure writing to the gpio file system to enable gpio pins
 			usleep(10000);
+			// ...set measurement timeout...
 			sensors[i]->setTimeout(200);
 			// ...set the lowest possible timing budget (high speed mode)...
 			sensors[i]->setMeasurementTimingBudget(20000);
 			// ...and set I2C address...
 			sensors[i]->setAddress(addresses[i]);
-			usleep(10000);
+
 			// ...also, notify user.
 			std::cout << "Sensor " << i << " initialized, real time budget: " << sensors[i]->getMeasurementTimingBudget() << std::endl;
 		} 
