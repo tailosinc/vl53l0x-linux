@@ -39,5 +39,8 @@ target_link_libraries(single_vl53l0x vl53l0x ${catkin_LIBRARIES})
 add_executable(multiple_vl53l0x src/ros_multiple_tof.cpp)
 target_link_libraries(multiple_vl53l0x vl53l0x ${catkin_LIBRARIES})
 
+### Testing
+add_subdirectory (tests)
+
 ### Examples
 # add_subdirectory (examples)
