@@ -3,6 +3,7 @@ cmake_minimum_required (VERSION 2.8.8 FATAL_ERROR)
 # Examples
 set (VL53L0X_TESTS
 	hello_sensor
+	read_sensor
 )
 
 foreach (test ${VL53L0X_TESTS})
