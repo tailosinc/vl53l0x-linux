@@ -2,7 +2,7 @@
 
 For sensor validation:
 
-Connections: https://maidbot.atlassian.net/wiki/spaces/HAR/pages/615284817/VL53L0X+Time+Of+Flight#Single-Mode
+Connections: <https://maidbot.atlassian.net/wiki/spaces/HAR/pages/615284817/VL53L0X+Time+Of+Flight#Single-Mode>
 
 - To check if sensor is detected, run:
 
