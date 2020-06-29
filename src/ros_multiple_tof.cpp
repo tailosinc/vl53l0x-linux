@@ -115,7 +115,8 @@ int main(int argc, char** argv)
 		for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) 
     {
       distance.data = 8096;
-			try {
+			try 
+			{
 				// Read the range. Note that it's a blocking call
 				distance.data = sensors[i]->readRangeContinuousMillimeters();
 			} 
