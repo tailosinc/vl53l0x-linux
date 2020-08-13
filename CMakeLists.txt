@@ -43,4 +43,4 @@ target_link_libraries(multiple_vl53l0x vl53l0x ${catkin_LIBRARIES})
 add_subdirectory (tests)
 
 ### Examples
-# add_subdirectory (examples)
+add_subdirectory (examples)
