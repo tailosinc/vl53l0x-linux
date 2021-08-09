@@ -32,6 +32,8 @@ generate_messages(DEPENDENCIES
 )
 
 add_library(vl53l0x src/I2Cdev.cpp src/VL53L0X.cpp)
+target_link_libraries(vl53l0x ${catkin_LIBRARIES} -lwiringPi)
+add_definitions(-std=c++0x -L${WIRING_PI_WS}/wiringPi)
 
 add_executable(single_vl53l0x src/ros_single_tof.cpp)
 target_link_libraries(single_vl53l0x vl53l0x ${catkin_LIBRARIES})

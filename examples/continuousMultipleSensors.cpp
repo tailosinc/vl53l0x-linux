@@ -19,7 +19,7 @@ int main() {
 	const int SENSOR_COUNT = 2;
 	// GPIO pins to use for sensors' XSHUT. As exported by RPi BCM. BCM is the protocol followed by the 
 	// /sys/class/gpio files that are used for GPIO control here. Run `gpio readall` for the pinout mapping.
-	const uint8_t pins[SENSOR_COUNT] = { 17, 18 };
+	// const uint8_t pins[SENSOR_COUNT] = { 17, 18 };
 	// Sensors' addresses that will be set and used. These have to be unique.
 	const uint8_t addresses[SENSOR_COUNT] = {
 		VL53L0X_ADDRESS_DEFAULT + 2,
@@ -29,6 +29,7 @@ int main() {
 		// VL53L0X_ADDRESS_DEFAULT + 12,
 		// VL53L0X_ADDRESS_DEFAULT + 14
 	};
+	const uint8_t fsb_flags[SENSOR_COUNT] = {0b0010, 0b0100};
 
 	// Register SIGINT handler
 	signal(SIGINT, sigintHandler);
@@ -38,7 +39,7 @@ int main() {
 
 	// Create sensors (and ensure GPIO pin mode)
 	for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
-		sensors[i] = new VL53L0X(pins[i]);
+		sensors[i] = new VL53L0X(-1, fsb_flags[i]);
 		sensors[i]->powerOff();
 	}
 	usleep(10000);
