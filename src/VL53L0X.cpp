@@ -4,8 +4,10 @@
 #include <cerrno>
 // strerror()
 #include <cstring>
+
 // struct timespec, clock_gettime()
 #include <ctime>
+#include <iostream>
 #include <string>
 #include <unistd.h>
 #include <stdexcept>
@@ -73,7 +75,7 @@ uint8_t VL53L0X::writeSpiRegister(const uint8_t reg, const uint8_t value)
     return spi_data[0];
   }
 
-  std::cout<<"Write failed to : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
+  std::cout<<"Write failed " <<std::endl;
   return false;
 }
 
