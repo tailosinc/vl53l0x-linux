@@ -167,11 +167,11 @@ void VL53L0X::controlViaSpi(bool power_on)
 {
   if (power_on)
   {
-    writeSpiRegister(0x07, this->fsb_spi_flag)
+    writeSpiRegister(0x07, this->fsb_spi_flag);
   }
   else
   {
-    writeSpiRegister(0x08, this->fsb_spi_flag)
+    writeSpiRegister(0x08, this->fsb_spi_flag);
   }
 }
 
