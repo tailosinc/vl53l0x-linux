@@ -100,7 +100,7 @@ void VL53L0X::setupSpi()
 
 VL53L0X::VL53L0X(const int16_t xshutGPIOPin, uint8_t fsb_spi_flag, bool ioMode2v8, const uint8_t address) {
 	this->xshutGPIOPin = xshutGPIOPin;
-        this->fsb_spi_flag = fsb_spi_flag;
+  	this->fsb_spi_flag = fsb_spi_flag;
 	this->ioMode2v8 = ioMode2v8;
 	this->address = address;
 	this->gpioInitialized = false;
@@ -111,7 +111,7 @@ VL53L0X::VL53L0X(const int16_t xshutGPIOPin, uint8_t fsb_spi_flag, bool ioMode2v
 	this->measurementTimingBudgetMicroseconds = 33000;
 	this->stopVariable = 0;
 	this->timeoutStartMilliseconds = milliseconds();
-        this->setupSpi();
+  	this->setupSpi();
 }
 
 /*** Public Methods ***/
@@ -139,10 +139,10 @@ void VL53L0X::powerOn() {
 		// t_boot is 1.2ms max, wait 2ms just to be sure
 		usleep(2000);
 	}
-  else
-  {
-    controlViaSpi(true);
-  }
+	else
+	{
+		controlViaSpi(true);
+	}
 }
 
 void VL53L0X::powerOff() {

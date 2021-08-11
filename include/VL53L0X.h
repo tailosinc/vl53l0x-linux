@@ -150,14 +150,14 @@ class VL53L0X {
 		 */
 		bool timeoutOccurred();
 
-    void setupSpi();
+    	void setupSpi();
 
 	private:
 		/*** Private fields ***/
 
 		uint8_t address;
 		int16_t xshutGPIOPin;
-    uint8_t fsb_spi_flag;
+    	uint8_t fsb_spi_flag;
 		bool ioMode2v8;
 		std::string gpioFilename;
 		std::mutex fileAccessMutex;
@@ -264,7 +264,7 @@ class VL53L0X {
 
 		uint8_t writeSpiRegister(const uint8_t reg, const uint8_t value);
 
-    void controlViaSpi(bool power_on);
+	    void controlViaSpi(bool power_on);
 };
 
 #endif
