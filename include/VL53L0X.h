@@ -12,6 +12,11 @@
 
 #include "VL53L0X_defines.h"
 
+#define CS_PIN 24
+#define RATE 1000000
+#define SPI_CHANNEL 0
+#define SPI_MODE 0
+
 class VL53L0X {
 	public:
 		/*** Constructors and destructors ***/
@@ -20,6 +25,7 @@ class VL53L0X {
 		 * \brief Initialize sensor using sequence Based on VL53L0X_DataInit(), VL53L0X_StaticInit(), and VL53L0X_PerformRefCalibration().
 		 *
 		 * \param xshutGPIOPin - host's GPIO pin used to toggle sensor on and off. Defaults to -1 (unused).
+		 * \param fsb_spi_flag - I2C bus address of the sensor. Defaults to sensor's default address, change only if sensor was initialized to another address beforehand.
 		 * \param ioMode2v8 - whether to configure the sensor for 2V8 mode (2.8V logic instead of 1.8V). Defaults to true.
 		 * \param address - I2C bus address of the sensor. Defaults to sensor's default address, change only if sensor was initialized to another address beforehand.
 		 *
@@ -27,7 +33,7 @@ class VL53L0X {
 		 * since the API user manual says that it is performed by ST on the bare modules;
 		 * It seems like that should work well enough unless a cover glass is added.
 		 */
-		VL53L0X(const int16_t xshutGPIOPin = -1, bool ioMode2v8 = true, const uint8_t address = VL53L0X_ADDRESS_DEFAULT);
+		VL53L0X(const int16_t xshutGPIOPin = -1, uint8_t fsb_spi_flag = 0, bool ioMode2v8 = true, const uint8_t address = VL53L0X_ADDRESS_DEFAULT);
 
 		/*** Public methods ***/
 		/**
@@ -143,11 +149,15 @@ class VL53L0X {
 		 * Whether a timeout occurred in one of the read functions since the last call to timeoutOccurred().
 		 */
 		bool timeoutOccurred();
+
+    	void setupSpi();
+
 	private:
 		/*** Private fields ***/
 
 		uint8_t address;
 		int16_t xshutGPIOPin;
+    	uint8_t fsb_spi_flag;
 		bool ioMode2v8;
 		std::string gpioFilename;
 		std::mutex fileAccessMutex;
@@ -250,6 +260,11 @@ class VL53L0X {
 		 */
 		void readRegisterMultiple(uint8_t register, uint8_t* destination, uint8_t count);
 
+		uint8_t readSpiRegister(const uint8_t reg);
+
+		uint8_t writeSpiRegister(const uint8_t reg, const uint8_t value);
+
+	    void controlViaSpi(bool power_on);
 };
 
 #endif

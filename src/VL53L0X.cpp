@@ -4,11 +4,15 @@
 #include <cerrno>
 // strerror()
 #include <cstring>
+
 // struct timespec, clock_gettime()
 #include <ctime>
+#include <iostream>
 #include <string>
 #include <unistd.h>
 #include <stdexcept>
+#include <wiringPi.h>
+#include <wiringPiSPI.h>
 
 /*** Defines ***/
 
@@ -36,10 +40,67 @@ uint64_t milliseconds() {
 	return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
+uint8_t VL53L0X::readSpiRegister(const uint8_t reg) 
+{
+  uint8_t spi_data[1];
+  spi_data[0] = reg;
+
+  int r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+  delayMicroseconds(2);
+  r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+  if(r>=0)
+  {
+    // std::cout<<"Read succeeded from : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
+    return spi_data[0];
+  }
+
+  // std::cout<<"Read failed from : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
+  return 0xFF;
+}
+
+uint8_t VL53L0X::writeSpiRegister(const uint8_t reg, const uint8_t value) 
+{
+  uint8_t spi_data[1];
+  spi_data[0] = reg | 0x80; // Maidbot write flag
+  int r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+  delayMicroseconds(2);
+  spi_data[0] = 1;
+  r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+  delayMicroseconds(3);
+  spi_data[0] = value;
+  r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+  delayMicroseconds(100);
+  if(r>=0)
+  {
+    return spi_data[0];
+  }
+
+  std::cout<<"Write failed " <<std::endl;
+  return false;
+}
+
+void VL53L0X::setupSpi()
+{
+  if (this->xshutGPIOPin>=0)
+  {
+    std::cout <<  "Not setting up SPI" << std::endl;
+    return;
+  }
+
+  std::cout << "Setting up SPI" << std::endl;
+
+  int fd = wiringPiSPISetupMode(SPI_CHANNEL, RATE, SPI_MODE);
+  if(fd < 0)
+  {
+    std::cout<<"Failed to set up SPI"<<fd<<std::endl;
+  }
+}
+
 /*** Constructors ***/
 
-VL53L0X::VL53L0X(const int16_t xshutGPIOPin, bool ioMode2v8, const uint8_t address) {
+VL53L0X::VL53L0X(const int16_t xshutGPIOPin, uint8_t fsb_spi_flag, bool ioMode2v8, const uint8_t address) {
 	this->xshutGPIOPin = xshutGPIOPin;
+  	this->fsb_spi_flag = fsb_spi_flag;
 	this->ioMode2v8 = ioMode2v8;
 	this->address = address;
 	this->gpioInitialized = false;
@@ -50,6 +111,7 @@ VL53L0X::VL53L0X(const int16_t xshutGPIOPin, bool ioMode2v8, const uint8_t addre
 	this->measurementTimingBudgetMicroseconds = 33000;
 	this->stopVariable = 0;
 	this->timeoutStartMilliseconds = milliseconds();
+  	this->setupSpi();
 }
 
 /*** Public Methods ***/
@@ -77,6 +139,10 @@ void VL53L0X::powerOn() {
 		// t_boot is 1.2ms max, wait 2ms just to be sure
 		usleep(2000);
 	}
+	else
+	{
+		controlViaSpi(true);
+	}
 }
 
 void VL53L0X::powerOff() {
@@ -94,6 +160,24 @@ void VL53L0X::powerOff() {
 		file << "0";
 		file.close();
 	}
+  else
+  {
+    controlViaSpi(false);
+  }
+}
+
+void VL53L0X::controlViaSpi(bool power_on)
+{
+  if (power_on)
+  {
+    writeSpiRegister(0x07, this->fsb_spi_flag);
+  }
+  else
+  {
+    writeSpiRegister(0x08, this->fsb_spi_flag);
+  }
+
+  delayMicroseconds(1000);
 }
 
 void VL53L0X::setAddress(uint8_t newAddress) {
