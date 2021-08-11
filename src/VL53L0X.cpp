@@ -83,11 +83,14 @@ void VL53L0X::setupSpi()
 {
   if (this->xshutGPIOPin>=0)
   {
+    std::cout <<  "Not setting up SPI" << std::endl;
     return;
   }
 
-	int fd = wiringPiSPISetupMode(SPI_CHANNEL, RATE, SPI_MODE);
-  if(fd < 0) 
+  std::cout << "Setting up SPI" << std::endl;
+
+  int fd = wiringPiSPISetupMode(SPI_CHANNEL, RATE, SPI_MODE);
+  if(fd < 0)
   {
     std::cout<<"Failed to set up SPI"<<fd<<std::endl;
   }
@@ -97,7 +100,7 @@ void VL53L0X::setupSpi()
 
 VL53L0X::VL53L0X(const int16_t xshutGPIOPin, uint8_t fsb_spi_flag, bool ioMode2v8, const uint8_t address) {
 	this->xshutGPIOPin = xshutGPIOPin;
-  this->fsb_spi_flag = fsb_spi_flag;
+        this->fsb_spi_flag = fsb_spi_flag;
 	this->ioMode2v8 = ioMode2v8;
 	this->address = address;
 	this->gpioInitialized = false;
@@ -108,6 +111,7 @@ VL53L0X::VL53L0X(const int16_t xshutGPIOPin, uint8_t fsb_spi_flag, bool ioMode2v
 	this->measurementTimingBudgetMicroseconds = 33000;
 	this->stopVariable = 0;
 	this->timeoutStartMilliseconds = milliseconds();
+        this->setupSpi();
 }
 
 /*** Public Methods ***/
@@ -115,7 +119,6 @@ VL53L0X::VL53L0X(const int16_t xshutGPIOPin, uint8_t fsb_spi_flag, bool ioMode2v
 void VL53L0X::initialize() {
 	this->initGPIO();
 	this->initHardware();
-  this->setupSpi();
 }
 
 void VL53L0X::powerOn() {
@@ -173,6 +176,8 @@ void VL53L0X::controlViaSpi(bool power_on)
   {
     writeSpiRegister(0x08, this->fsb_spi_flag);
   }
+
+  delayMicroseconds(1000);
 }
 
 void VL53L0X::setAddress(uint8_t newAddress) {

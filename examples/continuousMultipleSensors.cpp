@@ -94,7 +94,7 @@ int main() {
 	std::cout << std::setw(4) << std::setfill('0');
 
 	// Take the measurements!
-	for (; !exitFlag && j < 100000; ++j) {
+	for (; !exitFlag && j < 50; ++j) {
 		std::cout << "\rReading" << j << " | ";
 		for (int i = 0; !exitFlag && i < SENSOR_COUNT; ++i) {
 			uint16_t distance;
@@ -136,6 +136,8 @@ int main() {
 		if (duration < minDuration) {
 			minDuration = duration;
 		}
+
+		usleep(500000);
 	}
 
 	// Print measurement duration statistics
