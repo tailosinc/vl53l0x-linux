@@ -43,15 +43,28 @@ uint64_t milliseconds() {
 uint8_t VL53L0X::readSpiRegister(const uint8_t reg) 
 {
   uint8_t spi_data[1];
-  spi_data[0] = reg;
+  spi_data[0] = reg | 0x80; //reg address OR with 0x80 to continue
 
   int r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
   delayMicroseconds(2);
   r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+  int read_retries = 0;
   if(r>=0)
   {
     // std::cout<<"Read succeeded from : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
-    return spi_data[0];
+        while (spi_data[0] != 0xFF && read_retries < 64)  //check if first byte is 0xFF
+    {
+      //return spi_data[0];
+      read_retries++;
+    }
+    if (read_retries < 64)
+    {
+      return spi_data[0]
+    }
+    else
+    {
+      PRINTF("\r\nTimed out read for register %u\r\n", reg);
+    }
   }
 
   // std::cout<<"Read failed from : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
@@ -64,7 +77,7 @@ uint8_t VL53L0X::writeSpiRegister(const uint8_t reg, const uint8_t value)
   spi_data[0] = reg | 0x80; // Maidbot write flag
   int r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
   delayMicroseconds(2);
-  spi_data[0] = 1;
+  spi_data[0] = 1 | 0x80; //1 byte write OR 0x80 to transmit data
   r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
   delayMicroseconds(3);
   spi_data[0] = value;
