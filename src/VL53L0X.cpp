@@ -59,7 +59,7 @@ uint8_t VL53L0X::readSpiRegister(const uint8_t reg)
     }
     if (read_retries < 64)
     {
-      return spi_data[0]
+      return spi_data[0];
     }
     else
     {
