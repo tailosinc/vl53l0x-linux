@@ -66,7 +66,8 @@ uint8_t VL53L0X::readSpiRegister(const uint8_t reg)
     }
     else
     {
-      PRINTF("\r\nTimed out read for register %u\r\n", reg);
+      std::cout<<"Timed out read for register"<<std::endl;    
+      //PRINTF("\r\nTimed out read for register %u\r\n", reg);
     }
   }
 
