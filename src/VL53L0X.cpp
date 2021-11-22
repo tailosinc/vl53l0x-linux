@@ -43,15 +43,32 @@ uint64_t milliseconds() {
 uint8_t VL53L0X::readSpiRegister(const uint8_t reg) 
 {
   uint8_t spi_data[1];
-  spi_data[0] = reg;
+  spi_data[0] = reg | 0x80; //reg address OR with 0x80 to continue
 
   int r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
   delayMicroseconds(2);
   r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+  int read_retries = 0;
   if(r>=0)
   {
     // std::cout<<"Read succeeded from : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
-    return spi_data[0];
+	    //wait for spi_data[0] to indicate readiness with 0xFF
+        while (spi_data[0] != 0xFF && read_retries < 100)  //check if first byte is 0xFF
+    {
+	  r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+      read_retries++;
+    }
+	//once 0xFF is read, the following byte is the register value
+    if (read_retries < 64)
+    {
+	  r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
+      return spi_data[0];
+    }
+    else
+    {
+      std::cout<<"Timed out read for register"<<std::endl;    
+      //PRINTF("\r\nTimed out read for register %u\r\n", reg);
+    }
   }
 
   // std::cout<<"Read failed from : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
@@ -61,12 +78,9 @@ uint8_t VL53L0X::readSpiRegister(const uint8_t reg)
 uint8_t VL53L0X::writeSpiRegister(const uint8_t reg, const uint8_t value) 
 {
   uint8_t spi_data[1];
-  spi_data[0] = reg | 0x80; // Maidbot write flag
+  spi_data[0] = reg & 0x7F; // reg AND with 0x7F to clear bit
   int r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
-  delayMicroseconds(2);
-  spi_data[0] = 1;
-  r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
-  delayMicroseconds(3);
+  delayMicroseconds(1);
   spi_data[0] = value;
   r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
   delayMicroseconds(100);
