@@ -61,21 +61,19 @@ uint8_t VL53L0X::readSpiRegister(const uint8_t reg)
 uint8_t VL53L0X::writeSpiRegister(const uint8_t reg, const uint8_t value) 
 {
   uint8_t spi_data[1];
-  spi_data[0] = reg | 0x80; // Maidbot write flag
+  spi_data[0] = reg & 0x7F; // reg AND with 0x7F to clear bit
   int r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
-  delayMicroseconds(2);
-  spi_data[0] = 1;
-  r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
-  delayMicroseconds(3);
+  //delayMicroseconds(100);
+  delayMicroseconds(1);
+  //delayMicroseconds(1);
   spi_data[0] = value;
   r = wiringPiSPIDataRW(SPI_CHANNEL, spi_data, 1);
   delayMicroseconds(100);
-  if(r>=0)
+  if (r >= 0)
   {
     return spi_data[0];
   }
-
-  std::cout<<"Write failed " <<std::endl;
+  // std::cout<<"Write failed to : "<<HEX(reg)<<" : "<<std::dec<<r<<std::endl;
   return false;
 }
 
